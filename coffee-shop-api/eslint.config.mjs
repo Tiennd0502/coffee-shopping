@@ -4,17 +4,16 @@ import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
 import unusedImports from 'eslint-plugin-unused-imports';
-import simpleImportSort from 'eslint-plugin-simple-import-sort';
 
 export default defineConfig(
   {
     ignores: ['dist/**', 'node_modules/**'],
   },
   js.configs.recommended,
+  tseslint.configs.recommended,
   eslintConfigPrettier,
   {
     files: ['**/*.ts'],
-    extends: [...tseslint.configs.recommendedTypeChecked, ...tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -30,7 +29,6 @@ export default defineConfig(
     plugins: {
       import: importPlugin,
       'unused-imports': unusedImports,
-      'simple-import-sort': simpleImportSort,
     },
     rules: {
       'no-console': 'off',
@@ -47,8 +45,6 @@ export default defineConfig(
           argsIgnorePattern: '^_',
         },
       ],
-      'simple-import-sort/imports': 'error',
-      'simple-import-sort/exports': 'error',
     },
   },
   {
