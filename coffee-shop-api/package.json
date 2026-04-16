@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "prepare": "cd .. && husky coffee-shop-api/.husky"
+    "prepare": "cd .. && husky coffee-shop-api/.husky",
+    "typeorm": "typeorm-ts-node-commonjs -d src/config/database.ts"
   },
   "keywords": [],
   "author": "tien.nguyen@asnet.com.vn",
@@ -32,6 +33,7 @@
     "svix": "^1.90.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "typeorm": "0.3.28",
     "winston": "^3.19.0",
     "zod": "^4.3.6"
   },
