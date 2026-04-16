@@ -1,0 +1,2 @@
+cd coffee-shop-api
+pnpm test
