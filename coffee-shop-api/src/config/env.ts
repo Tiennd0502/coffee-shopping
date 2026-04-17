@@ -6,6 +6,7 @@ import {
   DEFAULT_NODE_ENV,
   DEFAULT_PORT,
   ENV_ERRORS,
+  MIN_ENV_LENGTH,
   NODE_ENV_VALUES,
 } from '@/shared/constants/env';
 
@@ -13,13 +14,13 @@ const envSchema = z.object({
   NODE_ENV: z.enum(NODE_ENV_VALUES).default(DEFAULT_NODE_ENV),
   PORT: z.coerce.number().int().positive().default(DEFAULT_PORT),
 
-  DB_HOST: z.string().min(1, ENV_ERRORS.DB_HOST_REQUIRED),
+  DB_HOST: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.DB_HOST_REQUIRED),
   DB_PORT: z.coerce.number().int().positive().default(DEFAULT_DB_PORT),
-  DB_NAME: z.string().min(1, ENV_ERRORS.DB_NAME_REQUIRED),
-  DB_USER: z.string().min(1, ENV_ERRORS.DB_USER_REQUIRED),
-  DB_PASSWORD: z.string().min(1, ENV_ERRORS.DB_PASSWORD_REQUIRED),
+  DB_NAME: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.DB_NAME_REQUIRED),
+  DB_USER: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.DB_USER_REQUIRED),
+  DB_PASSWORD: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.DB_PASSWORD_REQUIRED),
 
-  CLERK_WEBHOOK_SECRET: z.string().min(1, ENV_ERRORS.CLERK_WEBHOOK_SECRET_REQUIRED),
+  CLERK_WEBHOOK_SECRET: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.CLERK_WEBHOOK_SECRET_REQUIRED),
 });
 
 type Env = z.infer<typeof envSchema>;

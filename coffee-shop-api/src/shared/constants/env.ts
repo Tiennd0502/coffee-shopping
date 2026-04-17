@@ -1,3 +1,5 @@
+export const MIN_ENV_LENGTH = 1;
+
 export const DEFAULT_PORT = 3000;
 export const DEFAULT_DB_PORT = 5432;
 

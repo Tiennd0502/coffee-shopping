@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import { WebhookEvent } from '@clerk/express';
 
 import { verifyClerkWebhook } from '@/config/clerk';
 import { logger } from '@/config/logger';
@@ -8,16 +9,13 @@ import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_INVALID_WEBHOOK_SIGNATURE } from '@/shared/errors/messages';
 import type { RawBodyRequest } from '@/shared/types/request';
 
-type ClerkWebhookEvent = {
-  type: string;
-  data: Record<string, unknown>;
-};
+import { ClerkEventType } from './clerk.events';
 
 export const handleClerkWebhook = (req: RawBodyRequest, res: Response) => {
-  let event: ClerkWebhookEvent;
+  let event: WebhookEvent;
 
   try {
-    event = verifyClerkWebhook(req) as ClerkWebhookEvent;
+    event = verifyClerkWebhook(req) as WebhookEvent;
   } catch {
     throw new AppError(ERROR_INVALID_WEBHOOK_SIGNATURE, StatusCodes.BAD_REQUEST, {
       code: ErrorCode.BAD_REQUEST,
@@ -27,15 +25,15 @@ export const handleClerkWebhook = (req: RawBodyRequest, res: Response) => {
   const moduleLogger = logger.child({ service: 'clerk-webhook', eventType: event.type });
 
   switch (event.type) {
-    case 'user.created':
+    case ClerkEventType.USER_CREATED:
       moduleLogger.info('User created', { userId: event.data.id });
       break;
 
-    case 'user.updated':
+    case ClerkEventType.USER_UPDATED:
       moduleLogger.info('User updated', { userId: event.data.id });
       break;
 
-    case 'user.deleted':
+    case ClerkEventType.USER_DELETED:
       moduleLogger.info('User deleted', { userId: event.data.id });
       break;
 
