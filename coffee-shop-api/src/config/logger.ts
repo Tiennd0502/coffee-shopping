@@ -1,5 +1,7 @@
 import { addColors, createLogger, format, transports } from 'winston';
 
+import { isProduction } from '@/config/env';
+import { FORMAT_DATE } from '@/shared/constants/date';
 import { requestAsyncContext } from '@/shared/utils/request-async-context';
 
 const customLevels = {
@@ -28,12 +30,10 @@ const injectRequestContext = format((info) => {
   return info;
 });
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 const devFormat = format.combine(
   injectRequestContext(),
   format.colorize({ all: true }),
-  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  format.timestamp({ format: FORMAT_DATE.TIMESTAMP }),
   format.printf((info) => {
     const requestId = typeof info.requestId === 'string' ? `[${info.requestId}] ` : '';
     const service = typeof info.service === 'string' ? `[${info.service}] ` : '';

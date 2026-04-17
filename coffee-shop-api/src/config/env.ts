@@ -1,1 +1,1 @@
-//TODO: Update later
+export const isProduction = process.env.NODE_ENV === 'production';

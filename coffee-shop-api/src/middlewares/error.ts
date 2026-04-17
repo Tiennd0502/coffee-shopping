@@ -2,6 +2,7 @@ import type { ErrorRequestHandler } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
 // Config
+import { isProduction } from '@/config/env';
 import { logger } from '@/config/logger';
 
 // Shared
@@ -12,50 +13,56 @@ import {
   PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE,
 } from '@/shared/errors/messages';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 /**
  * Maps any thrown value to a consistent JSON error shape and appropriate logging.
  * Operational {@link AppError} instances return their status and message; unknown errors are treated as programming bugs.
  */
-export const errorHandlerMiddleware: ErrorRequestHandler = (
-  err,
-  req,
-  res,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express requires a 4-arg signature.
-  _next,
-) => {
+export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   if (err instanceof AppError) {
     err.attachRequestContext(req);
+
+    if (err.isOperational) {
+      logger.warn('Operational error', {
+        requestId: req.requestId,
+        message: err.message,
+        code: err.code,
+        statusCode: err.statusCode,
+        userId: err.userId,
+        method: err.method,
+        url: err.url,
+      });
+
+      const safeStatusCode =
+        err.statusCode >= 400 && err.statusCode < 600
+          ? err.statusCode
+          : StatusCodes.INTERNAL_SERVER_ERROR;
+
+      res.status(safeStatusCode).json({
+        status: safeStatusCode,
+        message: err.message,
+        code: err.code,
+        ...(req.requestId ? { requestId: req.requestId } : {}),
+      });
+      return;
+    }
   }
 
-  if (err instanceof AppError && err.isOperational) {
-    logger.warn('Operational error', {
-      requestId: req.requestId,
-      message: err.message,
-      code: err.code,
-      statusCode: err.statusCode,
-      userId: err.userId,
-      method: err.method,
-      url: err.url,
-    });
-
-    res.status(err.statusCode).json({
-      status: err.statusCode,
-      message: err.message,
-      code: err.code,
-      ...(req.requestId ? { requestId: req.requestId } : {}),
-    });
-    return;
-  }
-
-  const statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
   const logPayload = buildProgrammingErrorLog(err);
 
-  logger.error(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, { requestId: req.requestId, ...logPayload });
+  // Include method/url for all programming errors so logs have full request context.
+  logger.error(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+    requestId: req.requestId,
+    method: req.method,
+    url: req.originalUrl,
+    ...logPayload,
+  });
 
-  res.status(statusCode).json({
-    status: statusCode,
+  res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+    status: StatusCodes.INTERNAL_SERVER_ERROR,
     message: isProduction ? INTERNAL_SERVER_ERROR_MESSAGE : extractErrorMessage(err),
     code: ErrorCode.INTERNAL_ERROR,
     ...(req.requestId ? { requestId: req.requestId } : {}),
@@ -79,12 +86,17 @@ const buildProgrammingErrorLog = (err: unknown): Record<string, unknown> => {
   if (err instanceof Error) {
     return { message: err.message, stack: err.stack, name: err.name };
   }
-  return { message: String(err) };
+  return {
+    message: typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err),
+  };
 };
 
 const extractErrorMessage = (err: unknown): string => {
   if (err instanceof Error) {
     return err.message;
+  }
+  if (typeof err === 'object' && err !== null) {
+    return JSON.stringify(err);
   }
   return String(err);
 };
