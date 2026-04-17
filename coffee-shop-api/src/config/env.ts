@@ -1,9 +1,13 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
-import { DEFAULT_DB_PORT, DEFAULT_NODE_ENV, DEFAULT_PORT, NODE_ENV_VALUES } from './app';
-
-import { ENV_ERRORS } from '@/shared/constants/env';
+import {
+  DEFAULT_DB_PORT,
+  DEFAULT_NODE_ENV,
+  DEFAULT_PORT,
+  ENV_ERRORS,
+  NODE_ENV_VALUES,
+} from '@/shared/constants/env';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(NODE_ENV_VALUES).default(DEFAULT_NODE_ENV),
