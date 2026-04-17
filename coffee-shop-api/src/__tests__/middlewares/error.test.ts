@@ -18,7 +18,6 @@ jest.mock('@/config/logger', () => ({
 }));
 
 interface TestRequest extends Request {
-  requestId?: string;
   userId?: string;
 }
 
@@ -28,7 +27,6 @@ const createMockRequest = (overrides: Partial<TestRequest> = {}): TestRequest =>
   ({
     method: 'GET',
     originalUrl: '/orders',
-    requestId: 'req-123',
     userId: 'user-123',
     ...overrides,
   }) as TestRequest;
@@ -67,7 +65,7 @@ describe('errorHandlerMiddleware', () => {
   });
 
   describe('operational AppError', () => {
-    it('returns error payload with requestId and logs a warning', async () => {
+    it('returns error payload with logs a warning', async () => {
       const { errorHandlerMiddleware } = await import('@/middlewares/error');
       const { AppError } = await import('@/shared/errors/app');
       const req = createMockRequest();
@@ -80,7 +78,6 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).toHaveBeenCalledTimes(1);
       expect(mockWarn).toHaveBeenCalledWith('Operational error', {
-        requestId: 'req-123',
         message: 'Order not found',
         code: ErrorCode.NOT_FOUND,
         statusCode: StatusCodes.NOT_FOUND,
@@ -94,29 +91,6 @@ describe('errorHandlerMiddleware', () => {
         status: StatusCodes.NOT_FOUND,
         message: 'Order not found',
         code: ErrorCode.NOT_FOUND,
-        requestId: 'req-123',
-      });
-      expectNoNextCall();
-    });
-
-    it('omits requestId from response when request has no requestId', async () => {
-      const { errorHandlerMiddleware } = await import('@/middlewares/error');
-      const { AppError } = await import('@/shared/errors/app');
-      const req = createMockRequest({ requestId: undefined });
-      const { res, status, json } = createMockResponse();
-      const err = new AppError('Unauthorized', StatusCodes.UNAUTHORIZED, {
-        code: ErrorCode.UNAUTHORIZED,
-      });
-
-      errorHandlerMiddleware(err, req, res as Response, next);
-
-      expect(mockWarn).toHaveBeenCalledTimes(1);
-      expect(mockError).not.toHaveBeenCalled();
-      expect(status).toHaveBeenCalledWith(StatusCodes.UNAUTHORIZED);
-      expect(json).toHaveBeenCalledWith({
-        status: StatusCodes.UNAUTHORIZED,
-        message: 'Unauthorized',
-        code: ErrorCode.UNAUTHORIZED,
       });
       expectNoNextCall();
     });
@@ -132,7 +106,6 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).toHaveBeenCalledTimes(1);
       expect(mockWarn).toHaveBeenCalledWith('Operational error', {
-        requestId: 'req-123',
         message: 'Oops',
         code: 'HTTP_400',
         statusCode: StatusCodes.BAD_REQUEST,
@@ -146,7 +119,6 @@ describe('errorHandlerMiddleware', () => {
         status: StatusCodes.BAD_REQUEST,
         message: 'Oops',
         code: 'HTTP_400',
-        requestId: 'req-123',
       });
       expectNoNextCall();
     });
@@ -168,7 +140,6 @@ describe('errorHandlerMiddleware', () => {
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
       expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
-        requestId: 'req-123',
         message: 'Unexpected internal state',
         stack: expect.any(String),
         name: 'AppError',
@@ -184,7 +155,6 @@ describe('errorHandlerMiddleware', () => {
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: 'Unexpected internal state',
         code: ErrorCode.INTERNAL_ERROR,
-        requestId: 'req-123',
       });
       expectNoNextCall();
     });
@@ -202,7 +172,6 @@ describe('errorHandlerMiddleware', () => {
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
       expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
-        requestId: undefined,
         method: 'GET',
         url: '/orders',
         message: 'Database connection failed',
@@ -230,7 +199,6 @@ describe('errorHandlerMiddleware', () => {
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
       expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
-        requestId: 'req-123',
         method: 'GET',
         url: '/orders',
         message: 'Sensitive database failure',
@@ -242,7 +210,6 @@ describe('errorHandlerMiddleware', () => {
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: INTERNAL_SERVER_ERROR_MESSAGE,
         code: ErrorCode.INTERNAL_ERROR,
-        requestId: 'req-123',
       });
       expectNoNextCall();
     });
@@ -258,7 +225,6 @@ describe('errorHandlerMiddleware', () => {
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
       expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
-        requestId: 'req-123',
         method: 'GET',
         url: '/orders',
         message: '',
@@ -270,7 +236,6 @@ describe('errorHandlerMiddleware', () => {
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: '',
         code: ErrorCode.INTERNAL_ERROR,
-        requestId: 'req-123',
       });
       expectNoNextCall();
     });
@@ -305,7 +270,6 @@ describe('errorHandlerMiddleware', () => {
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
       expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
-        requestId: 'req-123',
         method: 'GET',
         url: '/orders',
         message: 'Something went catastrophically wrong',
@@ -315,7 +279,6 @@ describe('errorHandlerMiddleware', () => {
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: 'Something went catastrophically wrong',
         code: ErrorCode.INTERNAL_ERROR,
-        requestId: 'req-123',
       });
       expectNoNextCall();
     });

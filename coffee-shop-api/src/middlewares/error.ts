@@ -12,6 +12,7 @@ import {
   INTERNAL_SERVER_ERROR_MESSAGE,
   PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE,
 } from '@/shared/errors/messages';
+import { getErrorLog, extractErrorMessage } from '@/shared/errors/utils';
 
 /**
  * Maps any thrown value to a consistent JSON error shape and appropriate logging.
@@ -27,7 +28,6 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
 
     if (err.isOperational) {
       logger.warn('Operational error', {
-        requestId: req.requestId,
         message: err.message,
         code: err.code,
         statusCode: err.statusCode,
@@ -37,7 +37,8 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
       });
 
       const safeStatusCode =
-        err.statusCode >= 400 && err.statusCode < 600
+        err.statusCode >= StatusCodes.BAD_REQUEST &&
+        err.statusCode < StatusCodes.INTERNAL_SERVER_ERROR
           ? err.statusCode
           : StatusCodes.INTERNAL_SERVER_ERROR;
 
@@ -45,17 +46,15 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
         status: safeStatusCode,
         message: err.message,
         code: err.code,
-        ...(req.requestId ? { requestId: req.requestId } : {}),
       });
       return;
     }
   }
 
-  const logPayload = buildProgrammingErrorLog(err);
+  const logPayload = getErrorLog(err);
 
   // Include method/url for all programming errors so logs have full request context.
   logger.error(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
-    requestId: req.requestId,
     method: req.method,
     url: req.originalUrl,
     ...logPayload,
@@ -65,38 +64,5 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
     status: StatusCodes.INTERNAL_SERVER_ERROR,
     message: isProduction ? INTERNAL_SERVER_ERROR_MESSAGE : extractErrorMessage(err),
     code: ErrorCode.INTERNAL_ERROR,
-    ...(req.requestId ? { requestId: req.requestId } : {}),
   });
-};
-
-const buildProgrammingErrorLog = (err: unknown): Record<string, unknown> => {
-  if (err instanceof AppError) {
-    return {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-      code: err.code,
-      statusCode: err.statusCode,
-      isOperational: err.isOperational,
-      userId: err.userId,
-      method: err.method,
-      url: err.url,
-    };
-  }
-  if (err instanceof Error) {
-    return { message: err.message, stack: err.stack, name: err.name };
-  }
-  return {
-    message: typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err),
-  };
-};
-
-const extractErrorMessage = (err: unknown): string => {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (typeof err === 'object' && err !== null) {
-    return JSON.stringify(err);
-  }
-  return String(err);
 };

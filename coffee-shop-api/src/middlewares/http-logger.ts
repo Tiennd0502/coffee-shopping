@@ -4,6 +4,7 @@ import { logger } from '@/config/logger';
 
 /**
  * Logs one line per finished request at the `http` level (method, URL, status, duration).
+ * TODO: Improve it in the future for more detailed logging and monitoring
  */
 export const httpLoggerMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const start = Date.now();
