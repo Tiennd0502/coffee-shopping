@@ -1,1 +1,1 @@
-//TODO: Update later
+export const DEFAULT_PORT = 3000;
