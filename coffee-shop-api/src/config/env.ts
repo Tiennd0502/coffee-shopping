@@ -18,6 +18,8 @@ const envSchema = z.object({
   DB_NAME: z.string().min(1, ENV_ERRORS.DB_NAME_REQUIRED),
   DB_USER: z.string().min(1, ENV_ERRORS.DB_USER_REQUIRED),
   DB_PASSWORD: z.string().min(1, ENV_ERRORS.DB_PASSWORD_REQUIRED),
+
+  CLERK_WEBHOOK_SECRET: z.string().min(1, ENV_ERRORS.CLERK_WEBHOOK_SECRET_REQUIRED),
 });
 
 type Env = z.infer<typeof envSchema>;
