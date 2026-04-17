@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 
-import { env } from './env';
+import { env, isProduction } from './env';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -10,7 +10,7 @@ export const AppDataSource = new DataSource({
   password: env.DB_PASSWORD,
   database: env.DB_NAME,
   synchronize: false,
-  logging: env.NODE_ENV === 'development',
+  logging: !isProduction,
   entities: [`${__dirname}/../**/*.entity.{ts,js}`],
   migrations: [`${__dirname}/../migrations/*.{ts,js}`],
 });

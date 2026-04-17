@@ -1,18 +1,24 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3000),
+import { DEFAULT_DB_PORT, DEFAULT_NODE_ENV, DEFAULT_PORT, NODE_ENV_VALUES } from './app';
 
-  DB_HOST: z.string().min(1, 'DB_HOST is required'),
-  DB_PORT: z.coerce.number().int().positive().default(5432),
-  DB_NAME: z.string().min(1, 'DB_NAME is required'),
-  DB_USER: z.string().min(1, 'DB_USER is required'),
-  DB_PASSWORD: z.string().min(1, 'DB_PASSWORD is required'),
+import { ENV_ERRORS } from '@/shared/constants/env';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(NODE_ENV_VALUES).default(DEFAULT_NODE_ENV),
+  PORT: z.coerce.number().int().positive().default(DEFAULT_PORT),
+
+  DB_HOST: z.string().min(1, ENV_ERRORS.DB_HOST_REQUIRED),
+  DB_PORT: z.coerce.number().int().positive().default(DEFAULT_DB_PORT),
+  DB_NAME: z.string().min(1, ENV_ERRORS.DB_NAME_REQUIRED),
+  DB_USER: z.string().min(1, ENV_ERRORS.DB_USER_REQUIRED),
+  DB_PASSWORD: z.string().min(1, ENV_ERRORS.DB_PASSWORD_REQUIRED),
 });
 
-const parsedEnv = envSchema.safeParse(process.env);
+type Env = z.infer<typeof envSchema>;
+
+const parsedEnv: ReturnType<typeof envSchema.safeParse> = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
   throw new Error(
@@ -22,6 +28,6 @@ if (!parsedEnv.success) {
   );
 }
 
-export const env = parsedEnv.data;
+export const env: Env = parsedEnv.data;
 
 export const isProduction = env.NODE_ENV === 'production';
