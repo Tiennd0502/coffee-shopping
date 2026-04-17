@@ -163,7 +163,7 @@ describe('errorHandlerMiddleware', () => {
   describe('unknown Error', () => {
     it('exposes the raw error message in development', async () => {
       const { errorHandlerMiddleware } = await import('@/middlewares/error');
-      const req = createMockRequest({ requestId: undefined, userId: undefined });
+      const req = createMockRequest({ userId: undefined });
       const { res, status, json } = createMockResponse();
       const err = new Error('Database connection failed');
 
