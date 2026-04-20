@@ -2,10 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
 import { ErrorCode } from '@/shared/errors/codes';
-import {
-  INTERNAL_SERVER_ERROR_MESSAGE,
-  PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE,
-} from '@/shared/errors/messages';
+import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
 const mockWarn = jest.fn();
 const mockError = jest.fn();
@@ -139,7 +136,7 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
-      expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+      expect(mockError).toHaveBeenCalledWith(ERROR_MESSAGES.PROGRAMMING_OR_UNKNOWN, {
         message: 'Unexpected internal state',
         stack: expect.any(String),
         name: 'AppError',
@@ -171,7 +168,7 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
-      expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+      expect(mockError).toHaveBeenCalledWith(ERROR_MESSAGES.PROGRAMMING_OR_UNKNOWN, {
         method: 'GET',
         url: '/orders',
         message: 'Database connection failed',
@@ -198,7 +195,7 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
-      expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+      expect(mockError).toHaveBeenCalledWith(ERROR_MESSAGES.PROGRAMMING_OR_UNKNOWN, {
         method: 'GET',
         url: '/orders',
         message: 'Sensitive database failure',
@@ -208,7 +205,7 @@ describe('errorHandlerMiddleware', () => {
       expect(status).toHaveBeenCalledWith(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(json).toHaveBeenCalledWith({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: INTERNAL_SERVER_ERROR_MESSAGE,
+        message: ERROR_MESSAGES.INTERNAL_SERVER,
         code: ErrorCode.INTERNAL_ERROR,
       });
       expectNoNextCall();
@@ -224,7 +221,7 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
-      expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+      expect(mockError).toHaveBeenCalledWith(ERROR_MESSAGES.PROGRAMMING_OR_UNKNOWN, {
         method: 'GET',
         url: '/orders',
         message: '',
@@ -269,7 +266,7 @@ describe('errorHandlerMiddleware', () => {
 
       expect(mockWarn).not.toHaveBeenCalled();
       expect(mockError).toHaveBeenCalledTimes(1);
-      expect(mockError).toHaveBeenCalledWith(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+      expect(mockError).toHaveBeenCalledWith(ERROR_MESSAGES.PROGRAMMING_OR_UNKNOWN, {
         method: 'GET',
         url: '/orders',
         message: 'Something went catastrophically wrong',

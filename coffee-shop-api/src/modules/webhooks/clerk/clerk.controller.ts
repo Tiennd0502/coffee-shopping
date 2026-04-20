@@ -3,42 +3,77 @@ import { StatusCodes } from 'http-status-codes';
 import { WebhookEvent } from '@clerk/express';
 
 import { verifyClerkWebhook } from '@/config/clerk';
-import { logger } from '@/config/logger';
+import { createModuleLogger } from '@/config/logger';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
-import { ERROR_INVALID_WEBHOOK_SIGNATURE } from '@/shared/errors/messages';
+import { ERROR_MESSAGES } from '@/shared/errors/messages';
+import {
+  ClerkUserFields,
+  syncClerkUserCreated,
+  syncClerkUserDeleted,
+  syncClerkUserUpdated,
+} from '@/modules/user/user.service';
 import type { RawBodyRequest } from '@/shared/types/request';
 
 import { ClerkEventType } from './clerk.events';
 
-export const handleClerkWebhook = (req: RawBodyRequest, res: Response) => {
+const log = createModuleLogger('ClerkWebhook');
+
+export const handleClerkWebhook = async (req: RawBodyRequest, res: Response): Promise<void> => {
   let event: WebhookEvent;
 
   try {
     event = verifyClerkWebhook(req) as WebhookEvent;
   } catch {
-    throw new AppError(ERROR_INVALID_WEBHOOK_SIGNATURE, StatusCodes.BAD_REQUEST, {
+    throw new AppError(ERROR_MESSAGES.INVALID_WEBHOOK_SIGNATURE, StatusCodes.BAD_REQUEST, {
       code: ErrorCode.BAD_REQUEST,
     });
   }
 
-  const moduleLogger = logger.child({ service: 'clerk-webhook', eventType: event.type });
-
   switch (event.type) {
     case ClerkEventType.USER_CREATED:
-      moduleLogger.info('User created', { userId: event.data.id });
-      break;
+    case ClerkEventType.USER_UPDATED: {
+      const { data } = event;
 
-    case ClerkEventType.USER_UPDATED:
-      moduleLogger.info('User updated', { userId: event.data.id });
-      break;
+      const primaryEmail = data.email_addresses.find((e) => e.id === data.primary_email_address_id);
+      if (!primaryEmail) {
+        log.warn('No primary email on Clerk event, skipping sync', {
+          clerkId: data.id,
+          eventType: event.type,
+        });
+        break;
+      }
+      const primaryPhone = data.phone_numbers?.find((p) => p.id === data.primary_phone_number_id);
+      const fields: ClerkUserFields = {
+        clerkId: data.id,
+        email: primaryEmail.email_address,
+        firstName: data.first_name ?? '',
+        lastName: data.last_name ?? '',
+        phone: primaryPhone?.phone_number ?? '',
+      };
 
-    case ClerkEventType.USER_DELETED:
-      moduleLogger.info('User deleted', { userId: event.data.id });
+      if (event.type === ClerkEventType.USER_CREATED) {
+        await syncClerkUserCreated(fields);
+      } else {
+        await syncClerkUserUpdated(fields);
+      }
+      log.info('User synced from Clerk', { clerkId: data.id, eventType: event.type });
       break;
+    }
+
+    case ClerkEventType.USER_DELETED: {
+      const clerkId = event.data.id;
+      if (!clerkId) {
+        log.warn('Clerk user.deleted received without id, skipping');
+        break;
+      }
+      await syncClerkUserDeleted(clerkId);
+      log.info('User deleted from Clerk', { clerkId });
+      break;
+    }
 
     default:
-      moduleLogger.info('Unhandled webhook event', { eventType: event.type });
+      log.info('Unhandled webhook event', { eventType: event.type });
   }
 
   res.status(StatusCodes.OK).json({ received: true });
