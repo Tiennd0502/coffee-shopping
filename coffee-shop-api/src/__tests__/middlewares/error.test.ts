@@ -85,9 +85,8 @@ describe('errorHandlerMiddleware', () => {
       expect(mockError).not.toHaveBeenCalled();
       expect(status).toHaveBeenCalledWith(StatusCodes.NOT_FOUND);
       expect(json).toHaveBeenCalledWith({
-        status: StatusCodes.NOT_FOUND,
+        statusCode: StatusCodes.NOT_FOUND,
         message: 'Order not found',
-        code: ErrorCode.NOT_FOUND,
       });
       expectNoNextCall();
     });
@@ -113,9 +112,37 @@ describe('errorHandlerMiddleware', () => {
       expect(mockError).not.toHaveBeenCalled();
       expect(status).toHaveBeenCalledWith(StatusCodes.BAD_REQUEST);
       expect(json).toHaveBeenCalledWith({
-        status: StatusCodes.BAD_REQUEST,
+        statusCode: StatusCodes.BAD_REQUEST,
         message: 'Oops',
-        code: 'HTTP_400',
+      });
+      expectNoNextCall();
+    });
+
+    it('includes errors array in response when AppError has errors', async () => {
+      const { errorHandlerMiddleware } = await import('@/middlewares/error');
+      const { AppError } = await import('@/shared/errors/app');
+      const req = createMockRequest();
+      const { res, status, json } = createMockResponse();
+      const errors = [
+        {
+          errCode: 'REQUIRED',
+          field: 'name',
+          message: 'Name is required',
+          description: 'Field cannot be empty',
+        },
+      ];
+      const err = new AppError('Request validation failed', StatusCodes.BAD_REQUEST, {
+        code: ErrorCode.BAD_REQUEST,
+        errors,
+      });
+
+      errorHandlerMiddleware(err, req, res as Response, next);
+
+      expect(status).toHaveBeenCalledWith(StatusCodes.BAD_REQUEST);
+      expect(json).toHaveBeenCalledWith({
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: 'Request validation failed',
+        errors,
       });
       expectNoNextCall();
     });

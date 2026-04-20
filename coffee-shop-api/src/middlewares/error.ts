@@ -40,9 +40,9 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
           : StatusCodes.INTERNAL_SERVER_ERROR;
 
       res.status(safeStatusCode).json({
-        status: safeStatusCode,
+        statusCode: safeStatusCode,
         message: err.message,
-        code: err.code,
+        ...(err.errors && { errors: err.errors }),
       });
       return;
     }
