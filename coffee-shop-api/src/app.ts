@@ -1,6 +1,8 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+
+import { env } from '@/config/env';
 import { StatusCodes } from 'http-status-codes';
 
 // Middlewares
@@ -17,7 +19,7 @@ import type { RawBodyRequest } from '@/shared/types/request';
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 
 // Verify saves the raw buffer to req.rawBody before JSON parsing — required for svix webhook signature verification
 app.use(

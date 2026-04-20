@@ -9,6 +9,8 @@ const router: Router = Router();
 router.use(clerkMiddleware());
 router.use(requireAuthenticated);
 
+router.get('/me', userController.getMe);
+
 router.get('/users', userController.listUsers);
 router.get('/users/:id', userController.getUser);
 router.post('/users', userController.createUser);

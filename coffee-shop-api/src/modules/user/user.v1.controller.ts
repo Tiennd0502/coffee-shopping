@@ -21,6 +21,11 @@ const parseOrThrow = <T>(
   return result.data;
 };
 
+export const getMe = catchAsync(async (req: Request, res: Response) => {
+  const user = await userService.findUserById(req.userId!);
+  res.status(StatusCodes.OK).json(toResponse(user));
+});
+
 export const listUsers = catchAsync(async (_req: Request, res: Response) => {
   const users = await userService.findAllUsers();
   res.status(StatusCodes.OK).json(users.map(toResponse));
