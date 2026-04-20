@@ -21,6 +21,7 @@ const envSchema = z.object({
   DB_PASSWORD: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.DB_PASSWORD_REQUIRED),
 
   CLERK_WEBHOOK_SECRET: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.CLERK_WEBHOOK_SECRET_REQUIRED),
+  CORS_ORIGIN: z.string().min(MIN_ENV_LENGTH),
 });
 
 type Env = z.infer<typeof envSchema>;
