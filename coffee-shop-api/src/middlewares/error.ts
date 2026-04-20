@@ -8,10 +8,7 @@ import { logger } from '@/config/logger';
 // Shared
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
-import {
-  INTERNAL_SERVER_ERROR_MESSAGE,
-  PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE,
-} from '@/shared/errors/messages';
+import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { getErrorLog, extractErrorMessage } from '@/shared/errors/utils';
 
 /**
@@ -54,7 +51,7 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
   const logPayload = getErrorLog(err);
 
   // Include method/url for all programming errors so logs have full request context.
-  logger.error(PROGRAMMING_OR_UNKNOWN_ERROR_MESSAGE, {
+  logger.error(ERROR_MESSAGES.PROGRAMMING_OR_UNKNOWN, {
     method: req.method,
     url: req.originalUrl,
     ...logPayload,
@@ -62,7 +59,7 @@ export const errorHandlerMiddleware: ErrorRequestHandler = (err, req, res, next)
 
   res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
     status: StatusCodes.INTERNAL_SERVER_ERROR,
-    message: isProduction ? INTERNAL_SERVER_ERROR_MESSAGE : extractErrorMessage(err),
+    message: isProduction ? ERROR_MESSAGES.INTERNAL_SERVER : extractErrorMessage(err),
     code: ErrorCode.INTERNAL_ERROR,
   });
 };

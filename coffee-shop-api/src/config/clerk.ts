@@ -4,7 +4,7 @@ import { Webhook } from 'svix';
 
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
-import { ERROR_INVALID_WEBHOOK_SIGNATURE } from '@/shared/errors/messages';
+import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import type { RawBodyRequest } from '@/shared/types/request';
 
 import { env } from './env';
@@ -19,7 +19,7 @@ export function verifyClerkWebhook(req: RawBodyRequest): ReturnType<Webhook['ver
   };
 
   if (!req.rawBody) {
-    throw new AppError(ERROR_INVALID_WEBHOOK_SIGNATURE, StatusCodes.BAD_REQUEST, {
+    throw new AppError(ERROR_MESSAGES.INVALID_WEBHOOK_SIGNATURE, StatusCodes.BAD_REQUEST, {
       code: ErrorCode.BAD_REQUEST,
     });
   }
