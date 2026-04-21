@@ -5,7 +5,12 @@ import { BadRequestError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { catchAsync } from '@/shared/utils/async-handler';
 
-import { CreateUserSchema, UpdateUserSchema, userRecordIdParamSchema } from './user.dto';
+import {
+  CreateUserSchema,
+  ListUsersQuerySchema,
+  UpdateUserSchema,
+  userRecordIdParamSchema,
+} from './user.dto';
 import { toResponse } from './user.mapper';
 import * as userService from './user.service';
 
@@ -23,9 +28,10 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
   res.status(StatusCodes.OK).json(toResponse(user));
 });
 
-export const listUsers = catchAsync(async (_req: Request, res: Response) => {
-  const users = await userService.findAllUsers();
-  res.status(StatusCodes.OK).json(users.map(toResponse));
+export const listUsers = catchAsync(async (req: Request, res: Response) => {
+  const query = parseOrThrow(ListUsersQuerySchema.safeParse(req.query));
+  const result = await userService.findAllUsers(query);
+  res.status(StatusCodes.OK).json({ data: result.data.map(toResponse), meta: result.meta });
 });
 
 export const getUser = catchAsync(async (req: Request, res: Response) => {

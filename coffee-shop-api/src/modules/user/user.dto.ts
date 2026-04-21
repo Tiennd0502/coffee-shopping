@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
 
-const { EMAIL, NAME, PHONE } = VALIDATION_RULES;
+const { EMAIL, NAME, PHONE, PAGINATION } = VALIDATION_RULES;
 
 const userStatus = z.enum(USER_STATUS);
 const userRole = z.enum(USER_ROLE);
@@ -53,6 +53,21 @@ export const UserResponseSchema = z
   .openapi('UserResponse');
 
 export type UserResponse = z.infer<typeof UserResponseSchema>;
+
+export const ListUsersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(PAGINATION.DEFAULT_PAGE),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(PAGINATION.MAX_LIMIT)
+    .default(PAGINATION.DEFAULT_LIMIT),
+  role: userRole.optional(),
+  status: userStatus.optional(),
+  search: z.string().trim().optional(),
+});
+
+export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;
 
 /** Path `/users/:id` */
 export const userRecordIdParamSchema = z.object({ id: idParam });

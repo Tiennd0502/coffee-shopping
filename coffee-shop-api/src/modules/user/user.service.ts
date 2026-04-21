@@ -6,8 +6,9 @@ import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
 import { AppError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
+import type { PaginatedResponse } from '@/shared/types/response';
 
-import type { CreateUserInput, UpdateUserInput } from './user.dto';
+import type { CreateUserInput, ListUsersQuery, UpdateUserInput } from './user.dto';
 import { User } from './user.entity';
 
 export type ClerkUserFields = {
@@ -30,8 +31,33 @@ const assertUser = async (id: string): Promise<User> => {
   return found;
 };
 
-export const findAllUsers = async (): Promise<User[]> =>
-  userRepo().find({ order: { createdAt: 'DESC' } });
+export const findAllUsers = async (query: ListUsersQuery): Promise<PaginatedResponse<User[]>> => {
+  const { page, limit, role, status, search } = query;
+  const qb = userRepo()
+    .createQueryBuilder('user')
+    .orderBy('user.createdAt', 'DESC')
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  if (role) qb.andWhere('user.role = :role', { role });
+  if (status) qb.andWhere('user.status = :status', { status });
+  if (search) {
+    qb.andWhere(
+      "(user.firstName || ' ' || user.lastName) ILIKE :search OR user.email ILIKE :search",
+      { search: `%${search}%` },
+    );
+  }
+  const [data, totalCount] = await qb.getManyAndCount();
+  return {
+    data,
+    meta: {
+      limit,
+      currentPage: page,
+      pageCount: Math.ceil(totalCount / limit),
+      totalCount,
+    },
+  };
+};
 
 export const findUserById = async (id: string): Promise<User> => assertUser(id);
 
