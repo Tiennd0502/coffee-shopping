@@ -10,12 +10,20 @@ export const VALIDATION_RULES = {
     MIN_LENGTH: 2,
     MAX_LENGTH: 50,
   },
+  CATEGORY_NAME: {
+    MIN_LENGTH: 2,
+    MAX_LENGTH: 50,
+  },
   EMAIL: {
     MIN_LENGTH: 1,
     MAX_LENGTH: 254,
   },
   PHONE: {
     MAX_LENGTH: 20,
+  },
+  SLUG: {
+    MIN_LENGTH: 1,
+    MAX_LENGTH: 120,
   },
   PAGINATION: {
     DEFAULT_PAGE: 1,
