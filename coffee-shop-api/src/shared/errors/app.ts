@@ -1,4 +1,8 @@
 import type { Request } from 'express';
+import { StatusCodes } from 'http-status-codes';
+
+import { ERROR_MESSAGES } from './messages';
+import { ErrorCode } from './codes';
 
 interface ErrorItem {
   errCode: string;
@@ -47,5 +51,46 @@ export class AppError extends Error {
     this.url = req.originalUrl ?? req.url;
     this.userId = req.userId;
     return this;
+  }
+}
+
+export class UnauthorizedError extends AppError {
+  constructor() {
+    super(ERROR_MESSAGES.UNAUTHENTICATED, StatusCodes.UNAUTHORIZED, {
+      code: ErrorCode.UNAUTHORIZED,
+    });
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message: string = ERROR_MESSAGES.FORBIDDEN) {
+    super(message, StatusCodes.FORBIDDEN, {
+      code: ErrorCode.FORBIDDEN,
+    });
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(name: string) {
+    super(ERROR_MESSAGES.NOT_FOUND(name), StatusCodes.NOT_FOUND, {
+      code: ErrorCode.NOT_FOUND,
+    });
+  }
+}
+
+export class BadRequestError extends AppError {
+  constructor(message: string, errors?: ErrorItem[]) {
+    super(message, StatusCodes.BAD_REQUEST, {
+      code: ErrorCode.BAD_REQUEST,
+      errors,
+    });
+  }
+}
+
+export class ConflictError extends AppError {
+  constructor(message: string) {
+    super(message, StatusCodes.CONFLICT, {
+      code: ErrorCode.CONFLICT,
+    });
   }
 }

@@ -41,49 +41,46 @@ describe('requireAuthenticated', () => {
     jest.clearAllMocks();
   });
 
-  it('calls next with UNAUTHORIZED when getAuth throws', async () => {
+  it('throws UNAUTHORIZED when getAuth throws', async () => {
     const { requireAuthenticated } = await import('@/middlewares/auth');
     mockGetAuth.mockImplementation(() => {
       throw new Error('Clerk not initialized');
     });
 
-    await requireAuthenticated(createMockRequest(), res, next);
-
-    expectNextCalledWithAppError(
-      ErrorCode.UNAUTHORIZED,
-      StatusCodes.UNAUTHORIZED,
-      ERROR_MESSAGES.UNAUTHENTICATED,
-    );
+    await expect(requireAuthenticated(createMockRequest(), res, next)).rejects.toMatchObject({
+      code: ErrorCode.UNAUTHORIZED,
+      statusCode: StatusCodes.UNAUTHORIZED,
+      message: ERROR_MESSAGES.UNAUTHENTICATED,
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 
-  it('calls next with UNAUTHORIZED when clerkId is null', async () => {
+  it('throws UNAUTHORIZED when clerkId is null', async () => {
     const { requireAuthenticated } = await import('@/middlewares/auth');
     mockGetAuth.mockReturnValue({ userId: null });
 
-    await requireAuthenticated(createMockRequest(), res, next);
-
-    expectNextCalledWithAppError(
-      ErrorCode.UNAUTHORIZED,
-      StatusCodes.UNAUTHORIZED,
-      ERROR_MESSAGES.UNAUTHENTICATED,
-    );
+    await expect(requireAuthenticated(createMockRequest(), res, next)).rejects.toMatchObject({
+      code: ErrorCode.UNAUTHORIZED,
+      statusCode: StatusCodes.UNAUTHORIZED,
+      message: ERROR_MESSAGES.UNAUTHENTICATED,
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 
-  it('calls next with UNAUTHORIZED when user is not found', async () => {
+  it('throws UNAUTHORIZED when user is not found', async () => {
     const { requireAuthenticated } = await import('@/middlewares/auth');
     mockGetAuth.mockReturnValue({ userId: 'clerk_123' });
     mockFindUserByClerkId.mockResolvedValue(null);
 
-    await requireAuthenticated(createMockRequest(), res, next);
-
-    expectNextCalledWithAppError(
-      ErrorCode.UNAUTHORIZED,
-      StatusCodes.UNAUTHORIZED,
-      ERROR_MESSAGES.UNAUTHENTICATED,
-    );
+    await expect(requireAuthenticated(createMockRequest(), res, next)).rejects.toMatchObject({
+      code: ErrorCode.UNAUTHORIZED,
+      statusCode: StatusCodes.UNAUTHORIZED,
+      message: ERROR_MESSAGES.UNAUTHENTICATED,
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 
-  it('calls next with FORBIDDEN when user account is inactive', async () => {
+  it('throws FORBIDDEN when user account is inactive', async () => {
     const { requireAuthenticated } = await import('@/middlewares/auth');
     mockGetAuth.mockReturnValue({ userId: 'clerk_123' });
     mockFindUserByClerkId.mockResolvedValue({
@@ -92,13 +89,12 @@ describe('requireAuthenticated', () => {
       status: USER_STATUS.INACTIVE,
     });
 
-    await requireAuthenticated(createMockRequest(), res, next);
-
-    expectNextCalledWithAppError(
-      ErrorCode.FORBIDDEN,
-      StatusCodes.FORBIDDEN,
-      ERROR_MESSAGES.INACTIVE_ACCOUNT,
-    );
+    await expect(requireAuthenticated(createMockRequest(), res, next)).rejects.toMatchObject({
+      code: ErrorCode.FORBIDDEN,
+      statusCode: StatusCodes.FORBIDDEN,
+      message: ERROR_MESSAGES.INACTIVE_ACCOUNT,
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 
   it('sets req.userId and req.userRole then calls next on success', async () => {

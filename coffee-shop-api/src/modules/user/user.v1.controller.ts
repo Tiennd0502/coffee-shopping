@@ -1,8 +1,7 @@
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import { AppError } from '@/shared/errors/app';
-import { ErrorCode } from '@/shared/errors/codes';
+import { BadRequestError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { catchAsync } from '@/shared/utils/async-handler';
 
@@ -14,9 +13,7 @@ const parseOrThrow = <T>(
   result: { success: true; data: T } | { success: false; error: unknown },
 ): T => {
   if (!result.success) {
-    throw new AppError(ERROR_MESSAGES.INVALID_REQUEST, StatusCodes.BAD_REQUEST, {
-      code: ErrorCode.BAD_REQUEST,
-    });
+    throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST);
   }
   return result.data;
 };

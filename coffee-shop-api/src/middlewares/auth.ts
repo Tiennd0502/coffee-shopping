@@ -4,7 +4,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 import { findUserByClerkId } from '@/modules/user/user.service';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
-import { AppError } from '@/shared/errors/app';
+import { AppError, ForbiddenError, UnauthorizedError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
@@ -22,40 +22,20 @@ export const requireAuthenticated: RequestHandler = async (
   try {
     clerkId = getAuth(req).userId;
   } catch {
-    next(
-      new AppError(ERROR_MESSAGES.UNAUTHENTICATED, StatusCodes.UNAUTHORIZED, {
-        code: ErrorCode.UNAUTHORIZED,
-      }),
-    );
-    return;
+    throw new UnauthorizedError();
   }
 
   if (!clerkId) {
-    next(
-      new AppError(ERROR_MESSAGES.UNAUTHENTICATED, StatusCodes.UNAUTHORIZED, {
-        code: ErrorCode.UNAUTHORIZED,
-      }),
-    );
-    return;
+    throw new UnauthorizedError();
   }
 
   const user = await findUserByClerkId(clerkId);
   if (!user) {
-    next(
-      new AppError(ERROR_MESSAGES.UNAUTHENTICATED, StatusCodes.UNAUTHORIZED, {
-        code: ErrorCode.UNAUTHORIZED,
-      }),
-    );
-    return;
+    throw new UnauthorizedError();
   }
 
   if (user.status === USER_STATUS.INACTIVE) {
-    next(
-      new AppError(ERROR_MESSAGES.INACTIVE_ACCOUNT, StatusCodes.FORBIDDEN, {
-        code: ErrorCode.FORBIDDEN,
-      }),
-    );
-    return;
+    throw new ForbiddenError(ERROR_MESSAGES.INACTIVE_ACCOUNT);
   }
 
   req.userId = user.id;
