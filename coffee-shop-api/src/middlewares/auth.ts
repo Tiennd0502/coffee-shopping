@@ -3,8 +3,8 @@ import { StatusCodes } from 'http-status-codes';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 import { findUserByClerkId } from '@/modules/user/user.service';
-import { USER_STATUS } from '@/shared/enums/user';
-import { AppError } from '@/shared/errors/app';
+import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { AppError, ForbiddenError, UnauthorizedError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
@@ -18,35 +18,43 @@ export const requireAuthenticated: RequestHandler = async (
   _res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  const { userId: clerkId } = getAuth(req);
+  let clerkId: string | null = null;
+  try {
+    clerkId = getAuth(req).userId;
+  } catch {
+    throw new UnauthorizedError();
+  }
+
   if (!clerkId) {
-    next(
-      new AppError(ERROR_MESSAGES.UNAUTHENTICATED, StatusCodes.UNAUTHORIZED, {
-        code: ErrorCode.UNAUTHORIZED,
-      }),
-    );
-    return;
+    throw new UnauthorizedError();
   }
 
   const user = await findUserByClerkId(clerkId);
   if (!user) {
-    next(
-      new AppError(ERROR_MESSAGES.UNAUTHENTICATED, StatusCodes.UNAUTHORIZED, {
-        code: ErrorCode.UNAUTHORIZED,
-      }),
-    );
-    return;
+    throw new UnauthorizedError();
   }
 
   if (user.status === USER_STATUS.INACTIVE) {
+    throw new ForbiddenError(ERROR_MESSAGES.INACTIVE_ACCOUNT);
+  }
+
+  req.userId = user.id;
+  req.userRole = user.role;
+  next();
+};
+
+export const requireAdmin: RequestHandler = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  if (req.userRole !== USER_ROLE.ADMIN) {
     next(
-      new AppError(ERROR_MESSAGES.INACTIVE_ACCOUNT, StatusCodes.FORBIDDEN, {
+      new AppError(ERROR_MESSAGES.FORBIDDEN, StatusCodes.FORBIDDEN, {
         code: ErrorCode.FORBIDDEN,
       }),
     );
     return;
   }
-
-  req.userId = user.id;
   next();
 };

@@ -4,8 +4,7 @@ import { WebhookEvent } from '@clerk/express';
 
 import { verifyClerkWebhook } from '@/config/clerk';
 import { createModuleLogger } from '@/config/logger';
-import { AppError } from '@/shared/errors/app';
-import { ErrorCode } from '@/shared/errors/codes';
+import { BadRequestError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import {
   ClerkUserFields,
@@ -25,9 +24,7 @@ export const handleClerkWebhook = async (req: RawBodyRequest, res: Response): Pr
   try {
     event = verifyClerkWebhook(req) as WebhookEvent;
   } catch {
-    throw new AppError(ERROR_MESSAGES.INVALID_WEBHOOK_SIGNATURE, StatusCodes.BAD_REQUEST, {
-      code: ErrorCode.BAD_REQUEST,
-    });
+    throw new BadRequestError(ERROR_MESSAGES.INVALID_WEBHOOK_SIGNATURE);
   }
 
   switch (event.type) {

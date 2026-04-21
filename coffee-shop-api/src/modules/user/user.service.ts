@@ -1,10 +1,9 @@
-import { StatusCodes } from 'http-status-codes';
 import type { Repository } from 'typeorm';
 
 import AppDataSource from '@/config/database';
 import { createModuleLogger } from '@/config/logger';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
-import { AppError } from '@/shared/errors/app';
+import { AppError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
@@ -26,9 +25,7 @@ const userRepo = (): Repository<User> => AppDataSource.getRepository(User);
 const assertUser = async (id: string): Promise<User> => {
   const found = await userRepo().findOne({ where: { id } });
   if (!found) {
-    throw new AppError(ERROR_MESSAGES.NOT_FOUND('User'), StatusCodes.NOT_FOUND, {
-      code: ErrorCode.NOT_FOUND,
-    });
+    throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND('User'));
   }
   return found;
 };
@@ -41,16 +38,13 @@ export const findUserById = async (id: string): Promise<User> => assertUser(id);
 export const createUser = async (input: CreateUserInput): Promise<User> => {
   const existing = await userRepo().findOne({ where: { email: input.email } });
   if (existing) {
-    throw new AppError(ERROR_MESSAGES.EMAIL_EXISTS, StatusCodes.CONFLICT, {
-      code: ErrorCode.CONFLICT,
-    });
+    throw new ConflictError(ERROR_MESSAGES.EMAIL_EXISTS);
   }
+
   if (input.clerkId) {
     const byClerk = await userRepo().findOne({ where: { clerkId: input.clerkId } });
     if (byClerk) {
-      throw new AppError(ERROR_MESSAGES.USER_CLERK_ID_TAKEN, StatusCodes.CONFLICT, {
-        code: ErrorCode.CONFLICT,
-      });
+      throw new ConflictError(ERROR_MESSAGES.USER_CLERK_ID_TAKEN);
     }
   }
   const entity = userRepo().create({
@@ -70,9 +64,7 @@ export const updateUser = async (id: string, input: UpdateUserInput): Promise<Us
   if (input.email !== undefined && input.email !== user.email) {
     const taken = await userRepo().findOne({ where: { email: input.email } });
     if (taken) {
-      throw new AppError(ERROR_MESSAGES.EMAIL_EXISTS, StatusCodes.CONFLICT, {
-        code: ErrorCode.CONFLICT,
-      });
+      throw new ConflictError(ERROR_MESSAGES.EMAIL_EXISTS);
     }
     user.email = input.email;
   }
@@ -83,9 +75,7 @@ export const updateUser = async (id: string, input: UpdateUserInput): Promise<Us
     if (input.clerkId) {
       const byClerk = await userRepo().findOne({ where: { clerkId: input.clerkId } });
       if (byClerk && byClerk.id !== user.id) {
-        throw new AppError(ERROR_MESSAGES.USER_CLERK_ID_TAKEN, StatusCodes.CONFLICT, {
-          code: ErrorCode.CONFLICT,
-        });
+        throw new ConflictError(ERROR_MESSAGES.USER_CLERK_ID_TAKEN);
       }
     }
     user.clerkId = input.clerkId;

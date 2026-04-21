@@ -8,5 +8,6 @@ export const ERROR_MESSAGES = {
   USER_CLERK_ID_TAKEN: 'That Clerk user id is already linked to another account',
   INVALID_REQUEST: 'Request validation failed',
   UNAUTHENTICATED: 'Authentication required',
+  FORBIDDEN: 'Access forbidden',
   INACTIVE_ACCOUNT: 'Your account has been deactivated',
 };
