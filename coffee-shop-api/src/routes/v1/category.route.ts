@@ -22,8 +22,11 @@ const clerkErrorHandler: ErrorRequestHandler = (_err, _req, _res, next) => {
 router.use(clerkMiddleware());
 router.use(clerkErrorHandler);
 router.use(requireAuthenticated);
-router.use(requireAdmin);
 
+router.get('/', categoryController.listCategories);
+router.get('/:id', categoryController.getCategory);
+
+router.use(requireAdmin);
 router.post('/', categoryController.createCategory);
 router.patch('/:id', categoryController.updateCategory);
 router.delete('/:id', categoryController.deleteCategory);

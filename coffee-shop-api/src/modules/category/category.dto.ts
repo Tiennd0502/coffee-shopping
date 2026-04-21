@@ -30,6 +30,19 @@ export type CreateCategoryInput = z.infer<typeof CategorySchema>;
 
 export type UpdateCategoryInput = z.infer<typeof CategorySchema>;
 
+export const ListCategoriesQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(VALIDATION_RULES.PAGINATION.DEFAULT_PAGE),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(VALIDATION_RULES.PAGINATION.MAX_LIMIT)
+    .default(VALIDATION_RULES.PAGINATION.DEFAULT_LIMIT),
+  search: z.string().trim().optional(),
+});
+
+export type ListCategoriesQuery = z.infer<typeof ListCategoriesQuerySchema>;
+
 export const categoryIdParamSchema = z.object({ id: z.string().uuid() });
 
 export const CategoryResponseSchema = z

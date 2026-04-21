@@ -4,9 +4,21 @@ import { StatusCodes } from 'http-status-codes';
 import { catchAsync } from '@/shared/utils/async-handler';
 import { parseOrThrow } from '@/shared/utils/validation';
 
-import { categoryIdParamSchema, CategorySchema } from './category.dto';
+import { categoryIdParamSchema, CategorySchema, ListCategoriesQuerySchema } from './category.dto';
 import { toResponse } from './category.mapper';
 import * as categoryService from './category.service';
+
+export const listCategories = catchAsync(async (req: Request, res: Response) => {
+  const query = parseOrThrow(ListCategoriesQuerySchema.safeParse(req.query));
+  const result = await categoryService.findAllCategories(query);
+  res.status(StatusCodes.OK).json({ data: result.data.map(toResponse), meta: result.meta });
+});
+
+export const getCategory = catchAsync(async (req: Request, res: Response) => {
+  const { id } = parseOrThrow(categoryIdParamSchema.safeParse(req.params));
+  const category = await categoryService.findCategoryById(id);
+  res.status(StatusCodes.OK).json(toResponse(category));
+});
 
 export const createCategory = catchAsync(async (req: Request, res: Response) => {
   const body = parseOrThrow(CategorySchema.safeParse(req.body));
