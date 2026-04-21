@@ -1,9 +1,8 @@
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import { BadRequestError } from '@/shared/errors/app';
-import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { catchAsync } from '@/shared/utils/async-handler';
+import { parseOrThrow } from '@/shared/utils/validation';
 
 import {
   CreateUserSchema,
@@ -13,15 +12,6 @@ import {
 } from './user.dto';
 import { toResponse } from './user.mapper';
 import * as userService from './user.service';
-
-const parseOrThrow = <T>(
-  result: { success: true; data: T } | { success: false; error: unknown },
-): T => {
-  if (!result.success) {
-    throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST);
-  }
-  return result.data;
-};
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
   const user = await userService.findUserById(req.userId!);
