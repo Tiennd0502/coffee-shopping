@@ -3,10 +3,11 @@ import type { Repository } from 'typeorm';
 import AppDataSource from '@/config/database';
 import { BadRequestError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
+import type { PaginatedResponse } from '@/shared/types/response';
 import { assertNoDuplicate } from '@/shared/utils/validation';
 import { slugFrom } from '@/shared/utils/slug';
 
-import type { CreateCategoryInput, UpdateCategoryInput } from './category.dto';
+import type { CreateCategoryInput, ListCategoriesQuery, UpdateCategoryInput } from './category.dto';
 import { Category } from './category.entity';
 
 const categoryRepo = (): Repository<Category> => AppDataSource.getRepository(Category);
@@ -18,6 +19,36 @@ const assertCategory = async (id: string): Promise<Category> => {
   }
   return category;
 };
+
+export const findAllCategories = async (
+  query: ListCategoriesQuery,
+): Promise<PaginatedResponse<Category[]>> => {
+  const { page, limit, search } = query;
+  const qb = categoryRepo()
+    .createQueryBuilder('category')
+    .orderBy('category.createdAt', 'DESC')
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  if (search) {
+    qb.andWhere('category.name ILIKE :search OR category.slug ILIKE :search', {
+      search: `%${search}%`,
+    });
+  }
+
+  const [data, totalCount] = await qb.getManyAndCount();
+  return {
+    data,
+    meta: {
+      limit,
+      currentPage: page,
+      pageCount: Math.ceil(totalCount / limit),
+      totalCount,
+    },
+  };
+};
+
+export const findCategoryById = async (id: string): Promise<Category> => assertCategory(id);
 
 export const createCategory = async (
   input: CreateCategoryInput,
