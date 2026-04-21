@@ -19,14 +19,18 @@ const slugInputSchema = z.preprocess(
     .optional(),
 );
 
-export const CreateCategorySchema = z
+export const CategorySchema = z
   .object({
     name: nameSchema,
     slug: slugInputSchema,
   })
   .openapi('CreateCategoryInput');
 
-export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
+export type CreateCategoryInput = z.infer<typeof CategorySchema>;
+
+export type UpdateCategoryInput = z.infer<typeof CategorySchema>;
+
+export const categoryIdParamSchema = z.object({ id: z.string().uuid() });
 
 export const CategoryResponseSchema = z
   .object({

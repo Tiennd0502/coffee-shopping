@@ -25,5 +25,6 @@ router.use(requireAuthenticated);
 router.use(requireAdmin);
 
 router.post('/', categoryController.createCategory);
+router.patch('/:id', categoryController.updateCategory);
 
 export default router;
