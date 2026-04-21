@@ -20,3 +20,9 @@ export const updateCategory = catchAsync(async (req: Request, res: Response) => 
   const category = await categoryService.updateCategory(id, body, req.userId!);
   res.status(StatusCodes.OK).json(toResponse(category));
 });
+
+export const deleteCategory = catchAsync(async (req: Request, res: Response) => {
+  const { id } = parseOrThrow(categoryIdParamSchema.safeParse(req.params));
+  await categoryService.removeCategory(id, req.userId!);
+  res.status(StatusCodes.NO_CONTENT).send();
+});

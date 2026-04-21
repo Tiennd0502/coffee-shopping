@@ -26,5 +26,6 @@ router.use(requireAdmin);
 
 router.post('/', categoryController.createCategory);
 router.patch('/:id', categoryController.updateCategory);
+router.delete('/:id', categoryController.deleteCategory);
 
 export default router;

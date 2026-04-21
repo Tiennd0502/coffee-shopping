@@ -11,6 +11,14 @@ import { Category } from './category.entity';
 
 const categoryRepo = (): Repository<Category> => AppDataSource.getRepository(Category);
 
+const assertCategory = async (id: string): Promise<Category> => {
+  const category = await categoryRepo().findOne({ where: { id } });
+  if (!category) {
+    throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND('Category'));
+  }
+  return category;
+};
+
 export const createCategory = async (
   input: CreateCategoryInput,
   createdBy: string,
@@ -41,10 +49,7 @@ export const updateCategory = async (
   input: UpdateCategoryInput,
   updatedBy: string,
 ): Promise<Category> => {
-  const category = await categoryRepo().findOne({ where: { id } });
-  if (!category) {
-    throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND('Category'));
-  }
+  const category = await assertCategory(id);
 
   if (input.name !== undefined && input.name !== category.name) {
     await assertNoDuplicate(
@@ -67,4 +72,12 @@ export const updateCategory = async (
 
   category.updatedBy = updatedBy;
   return categoryRepo().save(category);
+};
+
+export const removeCategory = async (id: string, deletedBy: string): Promise<void> => {
+  const category = await assertCategory(id);
+  category.updatedBy = deletedBy;
+  category.deletedBy = deletedBy;
+  await categoryRepo().save(category);
+  await categoryRepo().softDelete({ id });
 };
