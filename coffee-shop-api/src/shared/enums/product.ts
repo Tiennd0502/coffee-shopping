@@ -1,0 +1,17 @@
+export enum ROAST_LEVEL {
+  LIGHT = 'LIGHT',
+  MEDIUM = 'MEDIUM',
+  DARK = 'DARK',
+}
+
+export enum PRODUCT_STATUS {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum DISCOUNT_TYPE {
+  PERCENT = 'PERCENT',
+  FIXED = 'FIXED',
+}
