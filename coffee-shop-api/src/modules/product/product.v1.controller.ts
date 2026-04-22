@@ -6,6 +6,7 @@ import { parseOrThrow } from '@/shared/utils/validation';
 
 import {
   CreateProductSchema,
+  ListProductsQuerySchema,
   productIdParamSchema,
   ProductParamSchema,
   UpdateProductSchema,
@@ -17,6 +18,18 @@ export const createProduct = catchAsync(async (req: Request, res: Response) => {
   const input = parseOrThrow(CreateProductSchema.safeParse(req.body));
   const product = await productService.createProduct(input, req.userId!);
   res.status(StatusCodes.CREATED).json({ data: toResponse(product) });
+});
+
+export const listProducts = catchAsync(async (req: Request, res: Response) => {
+  const query = parseOrThrow(ListProductsQuerySchema.safeParse(req.query));
+  const result = await productService.findAllProducts(query);
+  res.status(StatusCodes.OK).json({ data: result.data.map(toResponse), meta: result.meta });
+});
+
+export const getProduct = catchAsync(async (req: Request, res: Response) => {
+  const { id } = parseOrThrow(productIdParamSchema.safeParse(req.params));
+  const product = await productService.findProductById(id);
+  res.status(StatusCodes.OK).json({ data: toResponse(product) });
 });
 
 export const updateProduct = catchAsync(async (req: Request, res: Response) => {

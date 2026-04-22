@@ -10,9 +10,11 @@ import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { withRandomSkuSuffix } from '@/shared/utils/sku';
 import { slugFrom } from '@/shared/utils/slug';
 import { assertNoDuplicate } from '@/shared/utils/validation';
+import type { PaginatedResponse } from '@/shared/types/response';
 
 import type {
   CreateProductInput,
+  ListProductsQuery,
   UpdateProductImageInput,
   UpdateProductInput,
 } from './product.dto';
@@ -154,6 +156,71 @@ export const removeProduct = async (id: string, deletedBy: string): Promise<void
 
     await manager.softDelete(Product, { id });
   });
+};
+
+export const findProductById = async (id: string): Promise<Product> => {
+  const full = await productRepo().findOne({
+    where: { id },
+    relations: ['variants', 'images'],
+  });
+  if (!full) {
+    throw new NotFoundError('Product');
+  }
+
+  return full;
+};
+
+export const findAllProducts = async (
+  query: ListProductsQuery,
+): Promise<PaginatedResponse<Product[]>> => {
+  const { page, limit, search, status, categoryId } = query;
+
+  const qb = productRepo()
+    .createQueryBuilder('product')
+    .orderBy('product.createdAt', 'DESC')
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  if (status) qb.andWhere('product.status = :status', { status });
+
+  if (categoryId) qb.andWhere('product.categoryId = :categoryId', { categoryId });
+
+  if (search) {
+    qb.andWhere('product.name ILIKE :search OR product.slug ILIKE :search', {
+      search: `%${search}%`,
+    });
+  }
+
+  const [data, totalCount] = await qb.getManyAndCount();
+  if (data.length === 0) {
+    return {
+      data: [],
+      meta: {
+        limit,
+        currentPage: page,
+        pageCount: Math.ceil(totalCount / limit),
+        totalCount,
+      },
+    };
+  }
+
+  const ids = data.map((item) => item.id);
+  const fullData = await productRepo().find({
+    where: { id: In(ids) },
+    relations: ['variants', 'images'],
+  });
+  const order = new Map(ids.map((id, idx) => [id, idx]));
+  fullData.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+  return {
+    data: fullData,
+    meta: {
+      limit,
+      currentPage: page,
+      pageCount: Math.ceil(totalCount / limit),
+      totalCount,
+    },
+  };
 };
 
 const applyImageMutations = async (
