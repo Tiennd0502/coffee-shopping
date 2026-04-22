@@ -158,6 +158,12 @@ export const UpdateProductSchema = z
 
 export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
 
+export const ProductParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export type ProductParam = z.infer<typeof ProductParamSchema>;
+
 export const ProductImageResponseSchema = z.object({
   id: z.string().uuid(),
   productId: z.string().uuid(),

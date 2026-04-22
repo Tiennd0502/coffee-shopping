@@ -26,5 +26,6 @@ router.use(requireAdmin);
 
 router.post('/', productController.createProduct);
 router.patch('/:id', productController.updateProduct);
+router.delete('/:id', productController.deleteProduct);
 
 export default router;

@@ -13,14 +13,12 @@ import { assertNoDuplicate } from '@/shared/utils/validation';
 
 import type {
   CreateProductInput,
-  ProductResponse,
   UpdateProductImageInput,
   UpdateProductInput,
 } from './product.dto';
 import { Product } from './product.entity';
 import { ProductImage } from './product-image.entity';
 import { ProductVariant } from './product-variant.entity';
-import { toResponse } from './product.mapper';
 
 const log = createModuleLogger('ProductService');
 
@@ -30,6 +28,14 @@ const variantRepo = (): Repository<ProductVariant> => AppDataSource.getRepositor
 const categoryRepo = (): Repository<Category> => AppDataSource.getRepository(Category);
 const variantNameFrom = (weight: number, unit: string): string => `${String(weight)}${unit}`;
 const MAX_SKU_GENERATION_ATTEMPTS = 5;
+
+const assertProduct = async (id: string): Promise<Product> => {
+  const product = await productRepo().findOne({ where: { id } });
+  if (!product) {
+    throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND('Product'));
+  }
+  return product;
+};
 
 const generateUniqueVariantSku = async (
   baseSku: string,
@@ -54,7 +60,7 @@ const generateUniqueVariantSku = async (
 export const createProduct = async (
   input: CreateProductInput,
   createdBy: string,
-): Promise<ProductResponse> => {
+): Promise<Product> => {
   log.info('Creating product', { name: input.name, createdBy });
 
   const category = await categoryRepo().findOne({ where: { id: input.categoryId } });
@@ -122,7 +128,32 @@ export const createProduct = async (
     throw new NotFoundError('Product');
   }
 
-  return toResponse(full);
+  return full;
+};
+
+export const removeProduct = async (id: string, deletedBy: string): Promise<void> => {
+  await assertProduct(id);
+
+  await AppDataSource.transaction(async (manager) => {
+    await manager
+      .createQueryBuilder()
+      .update(ProductVariant)
+      .set({ updatedBy: deletedBy, deletedBy })
+      .where('product_id = :id AND deleted_at IS NULL', { id })
+      .execute();
+
+    await manager.softDelete(ProductVariant, { productId: id });
+    await manager.softDelete(ProductImage, { productId: id });
+
+    await manager
+      .createQueryBuilder()
+      .update(Product)
+      .set({ updatedBy: deletedBy, deletedBy })
+      .where('id = :id', { id })
+      .execute();
+
+    await manager.softDelete(Product, { id });
+  });
 };
 
 const applyImageMutations = async (
@@ -235,7 +266,7 @@ export const updateProduct = async (
   id: string,
   input: UpdateProductInput,
   updatedBy: string,
-): Promise<ProductResponse> => {
+): Promise<Product> => {
   log.info('Updating product', { id, updatedBy });
 
   await AppDataSource.transaction(async (manager) => {
@@ -265,5 +296,5 @@ export const updateProduct = async (
     updatedBy,
   });
 
-  return toResponse(full);
+  return full;
 };
