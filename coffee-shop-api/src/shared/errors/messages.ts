@@ -17,5 +17,11 @@ export const ERROR_MESSAGES = {
     SLUG_EXISTS: 'A product with that slug already exists',
     SKU_EXISTS: 'A product variant with that SKU already exists',
     DUPLICATE_SKU_IN_REQUEST: 'Duplicate SKU found in variants',
+    MULTIPLE_PRIMARY_IMAGES: 'Only one primary image is allowed per product',
+    DUPLICATE_IMAGE_IDS: 'Duplicate image ids found in request',
+    OVERLAPPING_IMAGE_MUTATIONS: 'An image cannot be both removed and updated in the same request',
+    INVALID_IMAGE_IDS: (ids: string[]): string =>
+      `These image ids do not belong to this product: ${ids.join(', ')}`,
+    TOO_MANY_IMAGES: (max: number): string => `A product can have at most ${String(max)} images`,
   },
 };

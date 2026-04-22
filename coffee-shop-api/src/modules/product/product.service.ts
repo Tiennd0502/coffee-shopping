@@ -1,15 +1,22 @@
-import type { Repository } from 'typeorm';
+import type { EntityManager, Repository } from 'typeorm';
+import { In } from 'typeorm';
 
 import AppDataSource from '@/config/database';
 import { createModuleLogger } from '@/config/logger';
 import { Category } from '@/modules/category/category.entity';
+import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { withRandomSkuSuffix } from '@/shared/utils/sku';
 import { slugFrom } from '@/shared/utils/slug';
 import { assertNoDuplicate } from '@/shared/utils/validation';
 
-import type { CreateProductDto, ProductResponse } from './product.dto';
+import type {
+  CreateProductInput,
+  ProductResponse,
+  UpdateProductImageInput,
+  UpdateProductInput,
+} from './product.dto';
 import { Product } from './product.entity';
 import { ProductImage } from './product-image.entity';
 import { ProductVariant } from './product-variant.entity';
@@ -45,25 +52,25 @@ const generateUniqueVariantSku = async (
 };
 
 export const createProduct = async (
-  dto: CreateProductDto,
+  input: CreateProductInput,
   createdBy: string,
 ): Promise<ProductResponse> => {
-  log.info('Creating product', { name: dto.name, createdBy });
+  log.info('Creating product', { name: input.name, createdBy });
 
-  const category = await categoryRepo().findOne({ where: { id: dto.categoryId } });
+  const category = await categoryRepo().findOne({ where: { id: input.categoryId } });
   if (!category) throw new NotFoundError('Category');
 
-  const skus = dto.variants.map((v) => v.sku);
+  const skus = input.variants.map((v) => v.sku);
   if (new Set(skus).size !== skus.length) {
     throw new BadRequestError(ERROR_MESSAGES.PRODUCT.DUPLICATE_SKU_IN_REQUEST);
   }
 
-  const slug = slugFrom(dto.name);
+  const slug = slugFrom(input.name);
   await assertNoDuplicate(productRepo(), { slug }, ERROR_MESSAGES.PRODUCT.SLUG_EXISTS);
 
   const pendingSkus = new Set<string>();
-  const variantsWithGeneratedSku: CreateProductDto['variants'] = [];
-  for (const variant of dto.variants) {
+  const variantsWithGeneratedSku: CreateProductInput['variants'] = [];
+  for (const variant of input.variants) {
     variantsWithGeneratedSku.push({
       ...variant,
       sku: await generateUniqueVariantSku(variant.sku, pendingSkus),
@@ -71,17 +78,17 @@ export const createProduct = async (
   }
 
   const product = productRepo().create({
-    categoryId: dto.categoryId,
-    name: dto.name,
+    categoryId: input.categoryId,
+    name: input.name,
     slug,
-    description: dto.description ?? null,
-    roastLevel: dto.roastLevel,
-    isOrganic: dto.isOrganic,
-    isFairTrade: dto.isFairTrade,
-    status: dto.status,
-    tastingNotes: dto.tastingNotes ?? null,
-    origin: dto.origin ?? null,
-    processingMethod: dto.processingMethod ?? null,
+    description: input.description ?? null,
+    roastLevel: input.roastLevel,
+    isOrganic: input.isOrganic,
+    isFairTrade: input.isFairTrade,
+    status: input.status,
+    tastingNotes: input.tastingNotes ?? null,
+    origin: input.origin ?? null,
+    processingMethod: input.processingMethod ?? null,
     createdBy,
     updatedBy: null,
     deletedBy: null,
@@ -94,7 +101,7 @@ export const createProduct = async (
         deletedBy: null,
       }),
     ),
-    images: dto.images.map((image) => imageRepo().create(image)),
+    images: input.images.map((image) => imageRepo().create(image)),
   });
 
   const saved = await productRepo().save(product);
@@ -114,6 +121,149 @@ export const createProduct = async (
   if (!full) {
     throw new NotFoundError('Product');
   }
+
+  return toResponse(full);
+};
+
+const applyImageMutations = async (
+  manager: EntityManager,
+  productId: string,
+  input: UpdateProductInput,
+): Promise<void> => {
+  const { removeImageIds, updateImages, addImages } = input;
+
+  const hasImageChanges =
+    Boolean(removeImageIds?.length) || Boolean(updateImages?.length) || Boolean(addImages?.length);
+
+  if (!hasImageChanges) return;
+
+  const imageRepository = manager.getRepository(ProductImage);
+
+  if (removeImageIds?.length) {
+    const existing = await imageRepository.find({
+      where: { productId, id: In(removeImageIds) },
+    });
+    if (existing.length !== removeImageIds.length) {
+      const foundIds = new Set(existing.map((img) => img.id));
+      const missing = removeImageIds.filter((x) => !foundIds.has(x));
+      throw new BadRequestError(ERROR_MESSAGES.PRODUCT.INVALID_IMAGE_IDS(missing));
+    }
+    await imageRepository.delete({ id: In(removeImageIds) });
+  }
+
+  if (updateImages?.length) {
+    const ids = updateImages.map((img) => img.id);
+    const existing = await imageRepository.find({ where: { productId, id: In(ids) } });
+    if (existing.length !== ids.length) {
+      const foundIds = new Set(existing.map((img) => img.id));
+      const missing = ids.filter((x) => !foundIds.has(x));
+      throw new BadRequestError(ERROR_MESSAGES.PRODUCT.INVALID_IMAGE_IDS(missing));
+    }
+    const byId = new Map(existing.map((img) => [img.id, img]));
+    for (const patch of updateImages) {
+      const target = byId.get(patch.id) as ProductImage;
+      applyImagePatch(target, patch);
+    }
+    await imageRepository.save(existing);
+  }
+
+  if (addImages?.length) {
+    const created = addImages.map((img) => imageRepository.create({ ...img, productId }));
+    await imageRepository.save(created);
+  }
+
+  const finalImages = await imageRepository.find({ where: { productId } });
+
+  if (finalImages.length > VALIDATION_RULES.PRODUCT.IMAGE.MAX_COUNT) {
+    throw new BadRequestError(
+      ERROR_MESSAGES.PRODUCT.TOO_MANY_IMAGES(VALIDATION_RULES.PRODUCT.IMAGE.MAX_COUNT),
+    );
+  }
+
+  let seenPrimary = false;
+  const hasMultiplePrimary = finalImages.some((img) => {
+    if (!img.isPrimary) return false;
+    if (seenPrimary) return true;
+    seenPrimary = true;
+    return false;
+  });
+  if (hasMultiplePrimary) {
+    throw new BadRequestError(ERROR_MESSAGES.PRODUCT.MULTIPLE_PRIMARY_IMAGES);
+  }
+};
+
+const applyImagePatch = (target: ProductImage, patch: UpdateProductImageInput): void => {
+  if (patch.url !== undefined) target.url = patch.url;
+  if (patch.isPrimary !== undefined) target.isPrimary = patch.isPrimary;
+  if (patch.sortOrder !== undefined) target.sortOrder = patch.sortOrder;
+};
+
+const applyScalarUpdates = async (
+  manager: EntityManager,
+  product: Product,
+  input: UpdateProductInput,
+): Promise<void> => {
+  if (input.categoryId !== undefined && input.categoryId !== product.categoryId) {
+    const category = await manager
+      .getRepository(Category)
+      .findOne({ where: { id: input.categoryId } });
+    if (!category) throw new NotFoundError('Category');
+    product.categoryId = input.categoryId;
+  }
+
+  if (input.name !== undefined && input.name !== product.name) {
+    const slug = slugFrom(input.name);
+    const slugConflict = await manager.getRepository(Product).findOne({ where: { slug } });
+    if (slugConflict && slugConflict.id !== product.id) {
+      throw new ConflictError(ERROR_MESSAGES.PRODUCT.SLUG_EXISTS);
+    }
+    product.name = input.name;
+    product.slug = slug;
+  }
+
+  if (input.description !== undefined) product.description = input.description;
+  if (input.roastLevel !== undefined) product.roastLevel = input.roastLevel;
+  if (input.isOrganic !== undefined) product.isOrganic = input.isOrganic;
+  if (input.isFairTrade !== undefined) product.isFairTrade = input.isFairTrade;
+  if (input.status !== undefined) product.status = input.status;
+  if (input.tastingNotes !== undefined) product.tastingNotes = input.tastingNotes;
+  if (input.origin !== undefined) product.origin = input.origin;
+  if (input.processingMethod !== undefined) product.processingMethod = input.processingMethod;
+};
+
+export const updateProduct = async (
+  id: string,
+  input: UpdateProductInput,
+  updatedBy: string,
+): Promise<ProductResponse> => {
+  log.info('Updating product', { id, updatedBy });
+
+  await AppDataSource.transaction(async (manager) => {
+    const product = await manager.getRepository(Product).findOne({ where: { id } });
+    if (!product) throw new NotFoundError('Product');
+
+    await applyScalarUpdates(manager, product, input);
+
+    product.updatedBy = updatedBy;
+    await manager.getRepository(Product).save(product);
+
+    await applyImageMutations(manager, id, input);
+  });
+
+  const full = await productRepo().findOne({
+    where: { id },
+    relations: ['variants', 'images'],
+  });
+  if (!full) {
+    throw new NotFoundError('Product');
+  }
+
+  log.info('Product updated', {
+    productId: id,
+    slug: full.slug,
+    imageCount: full.images?.length ?? 0,
+    updatedBy,
+  });
 
   return toResponse(full);
 };

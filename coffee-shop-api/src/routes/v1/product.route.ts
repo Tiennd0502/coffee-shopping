@@ -25,5 +25,6 @@ router.use(requireAuthenticated);
 router.use(requireAdmin);
 
 router.post('/', productController.createProduct);
+router.patch('/:id', productController.updateProduct);
 
 export default router;
