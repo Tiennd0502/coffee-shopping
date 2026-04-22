@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
 export const CreateProductVariantSchema = z.object({
   sku: z
@@ -21,15 +22,24 @@ export const CreateProductVariantSchema = z.object({
   quantity: z.number().int().min(0).default(0),
 });
 
-export type CreateProductVariantDto = z.infer<typeof CreateProductVariantSchema>;
+export type CreateProductVariantInput = z.infer<typeof CreateProductVariantSchema>;
 
 export const CreateProductImageSchema = z.object({
-  url: z.string().url().max(500).trim(),
+  url: z.string().url().max(VALIDATION_RULES.PRODUCT.IMAGE.URL_MAX_LENGTH).trim(),
   isPrimary: z.boolean().default(false),
   sortOrder: z.number().int().min(0).default(0),
 });
 
-export type CreateProductImageDto = z.infer<typeof CreateProductImageSchema>;
+export type CreateProductImageInput = z.infer<typeof CreateProductImageSchema>;
+
+export const UpdateProductImageSchema = z.object({
+  id: z.string().uuid(),
+  url: z.string().url().max(VALIDATION_RULES.PRODUCT.IMAGE.URL_MAX_LENGTH).trim().optional(),
+  isPrimary: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export type UpdateProductImageInput = z.infer<typeof UpdateProductImageSchema>;
 
 export const CreateProductSchema = z
   .object({
@@ -56,20 +66,97 @@ export const CreateProductSchema = z
       .trim()
       .optional(),
     variants: z.array(CreateProductVariantSchema).min(1),
-    images: z.array(CreateProductImageSchema).default([]),
+    images: z
+      .array(CreateProductImageSchema)
+      .max(VALIDATION_RULES.PRODUCT.IMAGE.MAX_COUNT)
+      .default([]),
   })
   .superRefine((data, ctx) => {
     const primaryCount = data.images.filter((image) => image.isPrimary).length;
-    if (primaryCount > 1) {
+    if (primaryCount > VALIDATION_RULES.PRODUCT.IMAGE.MAX_AVATARS_ALLOWED) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Only one primary image is allowed',
+        message: ERROR_MESSAGES.PRODUCT.MULTIPLE_PRIMARY_IMAGES,
         path: ['images'],
       });
     }
   });
 
-export type CreateProductDto = z.infer<typeof CreateProductSchema>;
+export type CreateProductInput = z.infer<typeof CreateProductSchema>;
+
+export const productIdParamSchema = z.object({ id: z.string().uuid() });
+
+export const UpdateProductSchema = z
+  .object({
+    categoryId: z.string().uuid(),
+    name: z
+      .string()
+      .min(VALIDATION_RULES.PRODUCT.NAME.MIN_LENGTH)
+      .max(VALIDATION_RULES.PRODUCT.NAME.MAX_LENGTH)
+      .trim(),
+    description: z.string().max(VALIDATION_RULES.PRODUCT.DESCRIPTION.MAX_LENGTH).trim().nullable(),
+    roastLevel: z.nativeEnum(ROAST_LEVEL),
+    isOrganic: z.boolean(),
+    isFairTrade: z.boolean(),
+    status: z.nativeEnum(PRODUCT_STATUS),
+    tastingNotes: z
+      .string()
+      .max(VALIDATION_RULES.PRODUCT.TASTING_NOTES.MAX_LENGTH)
+      .trim()
+      .nullable(),
+    origin: z.string().max(VALIDATION_RULES.PRODUCT.ORIGIN.MAX_LENGTH).trim().nullable(),
+    processingMethod: z
+      .string()
+      .max(VALIDATION_RULES.PRODUCT.PROCESSING_METHOD.MAX_LENGTH)
+      .trim()
+      .nullable(),
+    removeImageIds: z.array(z.string().uuid()),
+    updateImages: z.array(UpdateProductImageSchema),
+    addImages: z.array(CreateProductImageSchema).max(VALIDATION_RULES.PRODUCT.IMAGE.MAX_COUNT),
+  })
+  .partial()
+  .superRefine((data, ctx) => {
+    const removeIds = data.removeImageIds ?? [];
+    if (new Set(removeIds).size !== removeIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ERROR_MESSAGES.PRODUCT.DUPLICATE_IMAGE_IDS,
+        path: ['removeImageIds'],
+      });
+    }
+
+    const updateIds = (data.updateImages ?? []).map((img) => img.id);
+    if (new Set(updateIds).size !== updateIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ERROR_MESSAGES.PRODUCT.DUPLICATE_IMAGE_IDS,
+        path: ['updateImages'],
+      });
+    }
+
+    const overlap = updateIds.filter((id) => removeIds.includes(id));
+    if (overlap.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ERROR_MESSAGES.PRODUCT.OVERLAPPING_IMAGE_MUTATIONS,
+        path: ['updateImages'],
+      });
+    }
+
+    const explicitPrimaries = [
+      ...(data.addImages ?? []).filter((img) => img.isPrimary === true),
+      ...(data.updateImages ?? []).filter((img) => img.isPrimary === true),
+    ];
+    if (explicitPrimaries.length > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ERROR_MESSAGES.PRODUCT.MULTIPLE_PRIMARY_IMAGES,
+        path: ['addImages'],
+      });
+    }
+  });
+
+export type UpdateProductInput = z.infer<typeof UpdateProductSchema>;
 
 export const ProductImageResponseSchema = z.object({
   id: z.string().uuid(),

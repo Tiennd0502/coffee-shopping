@@ -35,6 +35,11 @@ export const VALIDATION_RULES = {
       MIN_LENGTH: 2,
       MAX_LENGTH: 200,
     },
+    IMAGE: {
+      MAX_AVATARS_ALLOWED: 1,
+      MAX_COUNT: 6,
+      URL_MAX_LENGTH: 500,
+    },
     DESCRIPTION: {
       MAX_LENGTH: 2000,
     },
