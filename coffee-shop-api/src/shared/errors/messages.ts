@@ -12,4 +12,10 @@ export const ERROR_MESSAGES = {
   UNAUTHENTICATED: 'Authentication required',
   FORBIDDEN: 'Access forbidden',
   INACTIVE_ACCOUNT: 'Your account has been deactivated',
+
+  PRODUCT: {
+    SLUG_EXISTS: 'A product with that slug already exists',
+    SKU_EXISTS: 'A product variant with that SKU already exists',
+    DUPLICATE_SKU_IN_REQUEST: 'Duplicate SKU found in variants',
+  },
 };

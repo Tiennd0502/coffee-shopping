@@ -45,6 +45,6 @@ export class Product extends AuditableEntity {
   @OneToMany(() => ProductVariant, (variant) => variant.product, { cascade: ['insert'] })
   variants!: ProductVariant[];
 
-  @OneToMany(() => ProductImage, (image) => image.product)
+  @OneToMany(() => ProductImage, (image) => image.product, { cascade: ['insert'] })
   images!: ProductImage[];
 }
