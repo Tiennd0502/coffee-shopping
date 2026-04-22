@@ -1,5 +1,6 @@
 import { BadRequestError, ConflictError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
+import { ZodError } from 'zod';
 
 import type { FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
 
@@ -11,6 +12,19 @@ type SafeParseResult<T> = { success: true; data: T } | { success: false; error: 
  */
 export function parseOrThrow<T>(result: SafeParseResult<T>): T {
   if (!result.success) {
+    if (result.error instanceof ZodError) {
+      const errors = result.error.issues.map((issue) => {
+        const field = issue.path.length > 0 ? issue.path.map(String).join('.') : 'request';
+        return {
+          errCode: issue.code.toUpperCase(),
+          field,
+          message: issue.message,
+          description: ERROR_MESSAGES.FIELD_INVALID(field),
+        };
+      });
+      throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST, errors);
+    }
+
     throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST);
   }
   return result.data;

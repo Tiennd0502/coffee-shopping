@@ -30,4 +30,32 @@ export const VALIDATION_RULES = {
     DEFAULT_LIMIT: 10,
     MAX_LIMIT: 100,
   },
+  PRODUCT: {
+    NAME: {
+      MIN_LENGTH: 2,
+      MAX_LENGTH: 200,
+    },
+    DESCRIPTION: {
+      MAX_LENGTH: 2000,
+    },
+    TASTING_NOTES: {
+      MAX_LENGTH: 500,
+    },
+    ORIGIN: {
+      MAX_LENGTH: 100,
+    },
+    PROCESSING_METHOD: {
+      MAX_LENGTH: 100,
+    },
+    VARIANT: {
+      SKU: {
+        MIN_LENGTH: 1,
+        MAX_LENGTH: 100,
+      },
+      UNIT: {
+        MIN_LENGTH: 1,
+        MAX_LENGTH: 20,
+      },
+    },
+  },
 } as const;
