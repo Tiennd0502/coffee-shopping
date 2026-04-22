@@ -86,6 +86,21 @@ export type CreateProductInput = z.infer<typeof CreateProductSchema>;
 
 export const productIdParamSchema = z.object({ id: z.string().uuid() });
 
+export const ListProductsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(VALIDATION_RULES.PAGINATION.DEFAULT_PAGE),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(VALIDATION_RULES.PAGINATION.MAX_LIMIT)
+    .default(VALIDATION_RULES.PAGINATION.DEFAULT_LIMIT),
+  status: z.nativeEnum(PRODUCT_STATUS).optional(),
+  categoryId: z.string().uuid().optional(),
+  search: z.string().trim().optional(),
+});
+
+export type ListProductsQuery = z.infer<typeof ListProductsQuerySchema>;
+
 export const UpdateProductSchema = z
   .object({
     categoryId: z.string().uuid(),
