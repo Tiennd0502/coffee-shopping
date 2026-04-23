@@ -13,6 +13,17 @@ export const ERROR_MESSAGES = {
   FORBIDDEN: 'Access forbidden',
   INACTIVE_ACCOUNT: 'Your account has been deactivated',
 
+  ORDER: {
+    USER_INACTIVE: 'Your account is not active and cannot place orders',
+    ADDRESS_REQUIRED: 'Either addressId or shippingAddress must be provided',
+    ADDRESS_NOT_FOUND: 'Address not found or does not belong to this user',
+    SHIPPING_METHOD_NOT_FOUND: 'Shipping method not found or inactive',
+    VARIANT_NOT_FOUND: (id: string): string => `Variant ${id} not found`,
+    INSUFFICIENT_STOCK: (sku: string, available: number): string =>
+      `Insufficient stock for variant ${sku}: only ${String(available)} units available`,
+    DUPLICATE_VARIANT: 'Duplicate variant found in order items',
+  },
+
   PRODUCT: {
     SLUG_EXISTS: 'A product with that slug already exists',
     SKU_EXISTS: 'A product variant with that SKU already exists',

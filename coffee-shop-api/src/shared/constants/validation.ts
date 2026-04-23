@@ -63,4 +63,26 @@ export const VALIDATION_RULES = {
       },
     },
   },
+  ADDRESS: {
+    LINE: {
+      MIN_LENGTH: 5,
+      MAX_LENGTH: 255,
+    },
+    CITY: {
+      MIN_LENGTH: 2,
+      MAX_LENGTH: 100,
+    },
+    DISTRICT: {
+      MIN_LENGTH: 2,
+      MAX_LENGTH: 100,
+    },
+    WARD: {
+      MIN_LENGTH: 2,
+      MAX_LENGTH: 100,
+    },
+    POSTAL_CODE: {
+      MIN_LENGTH: 2,
+      MAX_LENGTH: 20,
+    },
+  },
 } as const;
