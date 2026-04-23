@@ -56,6 +56,12 @@ export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
 
 export const orderIdParamSchema = z.object({ id: z.string().uuid() });
 
+export const UpdateOrderStatusSchema = z.object({
+  status: z.nativeEnum(ORDER_STATUS),
+});
+
+export type UpdateOrderStatusInput = z.infer<typeof UpdateOrderStatusSchema>;
+
 const AddressSnapshotSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
