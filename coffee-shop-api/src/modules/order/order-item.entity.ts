@@ -1,13 +1,14 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 import { Product } from '@/modules/product/product.entity';
 import { ProductVariant } from '@/modules/product/product-variant.entity';
-import { BaseEntity } from '@/shared/entities/base';
 
 import { Order } from './order.entity';
 
 @Entity('order_items')
-export class OrderItem extends BaseEntity {
+export class OrderItem {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
   @Column({ name: 'order_id', type: 'uuid' })
   orderId!: string;
 
