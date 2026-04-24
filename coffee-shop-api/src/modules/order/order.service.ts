@@ -19,10 +19,11 @@ import type {
   CreateOrderAddressInput,
   CreateOrderInput,
   UpdateOrderStatusInput,
+  UpdateShippingStatusInput,
 } from './order.dto';
 import { Order } from './order.entity';
 import { OrderItem } from './order-item.entity';
-import { assertValidOrderStatusTransition } from './order-state';
+import { assertShippingTransition, assertValidOrderStatusTransition } from './order-state';
 
 const log = createModuleLogger('OrderService');
 
@@ -216,6 +217,33 @@ export const updateOrderStatus = async ({
   const updated = await orderRepo().save(order);
 
   log.info('Order status updated', { orderId, newStatus: updated.status });
+
+  return updated;
+};
+
+interface UpdateOrderShippingStatusOptions {
+  orderId: string;
+  input: UpdateShippingStatusInput;
+}
+
+export const updateOrderShippingStatus = async ({
+  orderId,
+  input,
+}: UpdateOrderShippingStatusOptions): Promise<Order> => {
+  log.info('Updating order shipping status', { orderId, newShippingStatus: input.shippingStatus });
+
+  const order = await orderRepo().findOne({
+    where: { id: orderId },
+    relations: ['items'],
+  });
+  if (!order) throw new NotFoundError('Order');
+
+  assertShippingTransition(order.shippingStatus, input.shippingStatus);
+
+  order.shippingStatus = input.shippingStatus;
+  const updated = await orderRepo().save(order);
+
+  log.info('Order shipping status updated', { orderId, newShippingStatus: updated.shippingStatus });
 
   return updated;
 };

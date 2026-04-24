@@ -62,6 +62,12 @@ export const UpdateOrderStatusSchema = z.object({
 
 export type UpdateOrderStatusInput = z.infer<typeof UpdateOrderStatusSchema>;
 
+export const UpdateShippingStatusSchema = z.object({
+  shippingStatus: z.nativeEnum(SHIPPING_STATUS),
+});
+
+export type UpdateShippingStatusInput = z.infer<typeof UpdateShippingStatusSchema>;
+
 const AddressSnapshotSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),

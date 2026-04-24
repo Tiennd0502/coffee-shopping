@@ -25,7 +25,7 @@ const PAYMENT_TRANSITIONS: Readonly<Record<PAYMENT_STATUS, readonly PAYMENT_STAT
 
 export const assertValidOrderStatusTransition = (from: ORDER_STATUS, to: ORDER_STATUS): void => {
   if (!ORDER_TRANSITIONS[from].includes(to)) {
-    throw new BadRequestError(ERROR_MESSAGES.ORDER.INVALID_STATUS_TRANSITION(from, to));
+    throw new BadRequestError(ERROR_MESSAGES.ORDER.INVALID_TRANSITION('order', from, to));
   }
 };
 
@@ -35,12 +35,16 @@ export const assertOrderTransition = (current: ORDER_STATUS, next: ORDER_STATUS)
 
 export const assertShippingTransition = (current: SHIPPING_STATUS, next: SHIPPING_STATUS): void => {
   if (!SHIPPING_TRANSITIONS[current].includes(next)) {
-    throw new BadRequestError(`Cannot transition shipping status from ${current} to ${next}`);
+    throw new BadRequestError(
+      ERROR_MESSAGES.ORDER.INVALID_TRANSITION('shipping status', current, next),
+    );
   }
 };
 
 export const assertPaymentTransition = (current: PAYMENT_STATUS, next: PAYMENT_STATUS): void => {
   if (!PAYMENT_TRANSITIONS[current].includes(next)) {
-    throw new BadRequestError(`Cannot transition payment status from ${current} to ${next}`);
+    throw new BadRequestError(
+      ERROR_MESSAGES.ORDER.INVALID_TRANSITION('payment status', current, next),
+    );
   }
 };
