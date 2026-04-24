@@ -1,4 +1,5 @@
 import AppDataSource from '@/config/database';
+import type { ListOrdersQuery } from '@/modules/order/order.dto';
 import { Order } from '@/modules/order/order.entity';
 import { ProductVariant } from '@/modules/product/product-variant.entity';
 import {
@@ -7,6 +8,8 @@ import {
 } from '@/modules/order/order-state';
 import {
   deleteOrder,
+  getOrderById,
+  listOrders,
   updateOrderShippingStatus,
   updateOrderStatus,
 } from '@/modules/order/order.service';
@@ -16,7 +19,7 @@ import {
   PAYMENT_STATUS,
   SHIPPING_STATUS,
 } from '@/shared/enums/order';
-import { BadRequestError, NotFoundError } from '@/shared/errors/app';
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 
 jest.mock('@/config/logger', () => ({
   createModuleLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
@@ -25,11 +28,21 @@ jest.mock('@/config/logger', () => ({
 const mockOrderRepo = {
   findOne: jest.fn(),
   save: jest.fn(),
+  createQueryBuilder: jest.fn(),
 };
 
 const mockEntityManager = {
   increment: jest.fn(),
   softDelete: jest.fn(),
+};
+
+const mockQueryBuilder = {
+  leftJoinAndSelect: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  skip: jest.fn().mockReturnThis(),
+  take: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  getManyAndCount: jest.fn(),
 };
 
 const makeOrder = (status: ORDER_STATUS, shippingStatus = SHIPPING_STATUS.PENDING): Order =>
@@ -102,6 +115,7 @@ describe('assertShippingTransition', () => {
 describe('OrderService.updateOrderStatus', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
     jest
       .spyOn(AppDataSource, 'getRepository')
       .mockImplementation((entity: unknown) =>
@@ -157,6 +171,7 @@ describe('OrderService.updateOrderStatus', () => {
 describe('OrderService.deleteOrder', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
     jest
       .spyOn(AppDataSource, 'getRepository')
       .mockImplementation((entity: unknown) =>
@@ -239,6 +254,7 @@ describe('OrderService.deleteOrder', () => {
 describe('OrderService.updateOrderShippingStatus', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
     jest
       .spyOn(AppDataSource, 'getRepository')
       .mockImplementation((entity: unknown) =>
@@ -286,5 +302,134 @@ describe('OrderService.updateOrderShippingStatus', () => {
         input: { shippingStatus: SHIPPING_STATUS.DELIVERED },
       }),
     ).rejects.toBeInstanceOf(BadRequestError);
+  });
+});
+
+describe('OrderService.listOrders', () => {
+  const baseQuery: ListOrdersQuery = { page: 1, limit: 10, status: undefined };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+    jest
+      .spyOn(AppDataSource, 'getRepository')
+      .mockImplementation((entity: unknown) =>
+        entity === Order ? (mockOrderRepo as never) : ({} as never),
+      );
+  });
+
+  it('returns all orders with meta when requester is admin', async () => {
+    const mockOrders = [makeOrder(ORDER_STATUS.PENDING), makeOrder(ORDER_STATUS.CONFIRMED)];
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([mockOrders, 2]);
+
+    const result = await listOrders({
+      query: baseQuery,
+      requesterId: 'admin-id',
+      isAdmin: true,
+    });
+
+    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+      expect.stringContaining('userId'),
+      expect.anything(),
+    );
+    expect(result.data).toHaveLength(2);
+    expect(result.meta).toEqual({ limit: 10, currentPage: 1, pageCount: 1, totalCount: 2 });
+  });
+
+  it('filters by userId when requester is not admin', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listOrders({
+      query: baseQuery,
+      requesterId: 'user-id',
+      isAdmin: false,
+    });
+
+    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('order.userId = :userId', {
+      userId: 'user-id',
+    });
+  });
+
+  it('filters by status when status is provided', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listOrders({
+      query: { ...baseQuery, status: ORDER_STATUS.PENDING },
+      requesterId: 'user-id',
+      isAdmin: false,
+    });
+
+    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('order.status = :status', {
+      status: ORDER_STATUS.PENDING,
+    });
+  });
+
+  it('calculates pageCount correctly', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 25]);
+
+    const result = await listOrders({
+      query: { page: 2, limit: 10, status: undefined },
+      requesterId: 'user-id',
+      isAdmin: false,
+    });
+
+    expect(result.meta).toEqual({ limit: 10, currentPage: 2, pageCount: 3, totalCount: 25 });
+    expect(mockQueryBuilder.skip).toHaveBeenCalledWith(10);
+    expect(mockQueryBuilder.take).toHaveBeenCalledWith(10);
+  });
+});
+
+describe('OrderService.getOrderById', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+    jest
+      .spyOn(AppDataSource, 'getRepository')
+      .mockImplementation((entity: unknown) =>
+        entity === Order ? (mockOrderRepo as never) : ({} as never),
+      );
+  });
+
+  it('returns order when requester is the owner', async () => {
+    const mockOrder = makeOrder(ORDER_STATUS.PENDING);
+    mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+    const result = await getOrderById({
+      orderId: mockOrder.id,
+      requesterId: mockOrder.userId,
+      isAdmin: false,
+    });
+
+    expect(result).toEqual(mockOrder);
+  });
+
+  it('returns order when requester is admin', async () => {
+    const mockOrder = makeOrder(ORDER_STATUS.PENDING);
+    mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+    const result = await getOrderById({
+      orderId: mockOrder.id,
+      requesterId: 'admin-id',
+      isAdmin: true,
+    });
+
+    expect(result).toEqual(mockOrder);
+  });
+
+  it('throws NotFoundError when order does not exist', async () => {
+    mockOrderRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      getOrderById({ orderId: 'non-existent', requesterId: 'user-id', isAdmin: false }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws ForbiddenError when non-admin requester is not the owner', async () => {
+    const mockOrder = makeOrder(ORDER_STATUS.PENDING);
+    mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+    await expect(
+      getOrderById({ orderId: mockOrder.id, requesterId: 'other-user-id', isAdmin: false }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

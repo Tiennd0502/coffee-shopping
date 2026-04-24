@@ -23,6 +23,8 @@ router.use(clerkMiddleware());
 router.use(clerkErrorHandler);
 router.use(requireAuthenticated);
 
+router.get('/', orderController.listOrders);
+router.get('/:id', orderController.getOrderDetail);
 router.post('/', orderController.createOrder);
 
 router.use(requireAdmin);
