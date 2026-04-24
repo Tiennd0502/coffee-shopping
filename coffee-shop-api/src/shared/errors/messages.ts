@@ -22,6 +22,7 @@ export const ERROR_MESSAGES = {
     INSUFFICIENT_STOCK: (sku: string, available: number): string =>
       `Insufficient stock for variant ${sku}: only ${String(available)} units available`,
     DUPLICATE_VARIANT: 'Duplicate variant found in order items',
+    CANNOT_DELETE_ORDER: 'Only pending or cancelled orders can be deleted',
     INVALID_TRANSITION: (name: string, from: string, to: string): string =>
       `Cannot transition ${name} from ${from} to ${to}`,
   },

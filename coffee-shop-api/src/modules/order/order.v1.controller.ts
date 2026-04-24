@@ -32,3 +32,9 @@ export const updateOrderShippingStatus = catchAsync(async (req: Request, res: Re
   const order = await orderService.updateOrderShippingStatus({ orderId: id, input });
   res.status(StatusCodes.OK).json({ data: toResponse(order) });
 });
+
+export const deleteOrder = catchAsync(async (req: Request, res: Response): Promise<void> => {
+  const { id: orderId } = parseOrThrow(orderIdParamSchema.safeParse(req.params));
+  await orderService.deleteOrder({ orderId });
+  res.status(StatusCodes.NO_CONTENT).send();
+});

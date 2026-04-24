@@ -1,10 +1,15 @@
 import AppDataSource from '@/config/database';
 import { Order } from '@/modules/order/order.entity';
+import { ProductVariant } from '@/modules/product/product-variant.entity';
 import {
   assertShippingTransition,
   assertValidOrderStatusTransition,
 } from '@/modules/order/order-state';
-import { updateOrderShippingStatus, updateOrderStatus } from '@/modules/order/order.service';
+import {
+  deleteOrder,
+  updateOrderShippingStatus,
+  updateOrderStatus,
+} from '@/modules/order/order.service';
 import {
   ORDER_STATUS,
   PAYMENT_METHOD,
@@ -20,6 +25,11 @@ jest.mock('@/config/logger', () => ({
 const mockOrderRepo = {
   findOne: jest.fn(),
   save: jest.fn(),
+};
+
+const mockEntityManager = {
+  increment: jest.fn(),
+  softDelete: jest.fn(),
 };
 
 const makeOrder = (status: ORDER_STATUS, shippingStatus = SHIPPING_STATUS.PENDING): Order =>
@@ -97,6 +107,10 @@ describe('OrderService.updateOrderStatus', () => {
       .mockImplementation((entity: unknown) =>
         entity === Order ? (mockOrderRepo as never) : ({} as never),
       );
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation((async (cb: (manager: typeof mockEntityManager) => Promise<void>) =>
+        cb(mockEntityManager)) as never);
   });
 
   it('transitions PENDING -> CONFIRMED and returns saved order', async () => {
@@ -137,6 +151,88 @@ describe('OrderService.updateOrderStatus', () => {
         input: { status: ORDER_STATUS.COMPLETED },
       }),
     ).rejects.toBeInstanceOf(BadRequestError);
+  });
+});
+
+describe('OrderService.deleteOrder', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest
+      .spyOn(AppDataSource, 'getRepository')
+      .mockImplementation((entity: unknown) =>
+        entity === Order ? (mockOrderRepo as never) : ({} as never),
+      );
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation((async (cb: (manager: typeof mockEntityManager) => Promise<void>) =>
+        cb(mockEntityManager)) as never);
+  });
+
+  it.each([ORDER_STATUS.PENDING, ORDER_STATUS.CANCELLED])(
+    'soft deletes a %s order and restores variant quantities',
+    async (status) => {
+      const order = {
+        ...makeOrder(status),
+        items: [
+          { variantId: 'v1', quantity: 2 },
+          { variantId: 'v2', quantity: 1 },
+        ],
+      };
+      mockOrderRepo.findOne.mockResolvedValue(order);
+      mockEntityManager.increment.mockResolvedValue(undefined);
+      mockEntityManager.softDelete.mockResolvedValue(undefined);
+
+      await deleteOrder({ orderId: order.id });
+
+      expect(AppDataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(mockEntityManager.increment).toHaveBeenCalledTimes(2);
+      expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
+        1,
+        ProductVariant,
+        { id: 'v1' },
+        'quantity',
+        2,
+      );
+      expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
+        2,
+        ProductVariant,
+        { id: 'v2' },
+        'quantity',
+        1,
+      );
+      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(Order, order.id);
+    },
+  );
+
+  it('throws NotFoundError when order does not exist', async () => {
+    mockOrderRepo.findOne.mockResolvedValue(null);
+
+    await expect(deleteOrder({ orderId: 'non-existent' })).rejects.toBeInstanceOf(NotFoundError);
+    expect(AppDataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([ORDER_STATUS.CONFIRMED, ORDER_STATUS.COMPLETED])(
+    'throws BadRequestError when order status is %s',
+    async (status) => {
+      mockOrderRepo.findOne.mockResolvedValue({ ...makeOrder(status), items: [] });
+
+      await expect(
+        deleteOrder({ orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' }),
+      ).rejects.toBeInstanceOf(BadRequestError);
+      expect(AppDataSource.transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('propagates error thrown inside transaction', async () => {
+    mockOrderRepo.findOne.mockResolvedValue({
+      ...makeOrder(ORDER_STATUS.PENDING),
+      items: [],
+    });
+    mockEntityManager.softDelete.mockRejectedValue(new Error('DB error'));
+
+    await expect(deleteOrder({ orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' })).rejects.toThrow(
+      'DB error',
+    );
   });
 });
 

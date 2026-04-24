@@ -28,5 +28,6 @@ router.post('/', orderController.createOrder);
 router.use(requireAdmin);
 router.patch('/:id/status', orderController.updateOrderStatus);
 router.patch('/:id/shipping-status', orderController.updateOrderShippingStatus);
+router.delete('/:id', orderController.deleteOrder);
 
 export default router;
