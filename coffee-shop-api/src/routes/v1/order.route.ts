@@ -3,7 +3,7 @@ import type { ErrorRequestHandler } from 'express';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import { requireAuthenticated } from '@/middlewares/auth';
+import { requireAdmin, requireAuthenticated } from '@/middlewares/auth';
 import * as orderController from '@/modules/order/order.v1.controller';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
@@ -24,5 +24,8 @@ router.use(clerkErrorHandler);
 router.use(requireAuthenticated);
 
 router.post('/', orderController.createOrder);
+
+router.use(requireAdmin);
+router.patch('/:id/status', orderController.updateOrderStatus);
 
 export default router;

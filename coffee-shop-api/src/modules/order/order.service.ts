@@ -15,9 +15,14 @@ import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { DiscountStrategyFactory } from '@/shared/strategies/discount/discount.factory';
 import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
 
-import type { CreateOrderAddressInput, CreateOrderInput } from './order.dto';
+import type {
+  CreateOrderAddressInput,
+  CreateOrderInput,
+  UpdateOrderStatusInput,
+} from './order.dto';
 import { Order } from './order.entity';
 import { OrderItem } from './order-item.entity';
+import { assertValidOrderStatusTransition } from './order-state';
 
 const log = createModuleLogger('OrderService');
 
@@ -186,4 +191,31 @@ export const createOrder = async (input: CreateOrderInput, userId: string): Prom
   log.info('Order placed', { orderId: fullOrder.id, orderNumber: fullOrder.orderNumber, userId });
 
   return fullOrder;
+};
+
+interface UpdateOrderStatusOptions {
+  orderId: string;
+  input: UpdateOrderStatusInput;
+}
+
+export const updateOrderStatus = async ({
+  orderId,
+  input,
+}: UpdateOrderStatusOptions): Promise<Order> => {
+  log.info('Updating order status', { orderId, newStatus: input.status });
+
+  const order = await orderRepo().findOne({
+    where: { id: orderId },
+    relations: ['items'],
+  });
+  if (!order) throw new NotFoundError('Order');
+
+  assertValidOrderStatusTransition(order.status, input.status);
+
+  order.status = input.status;
+  const updated = await orderRepo().save(order);
+
+  log.info('Order status updated', { orderId, newStatus: updated.status });
+
+  return updated;
 };
