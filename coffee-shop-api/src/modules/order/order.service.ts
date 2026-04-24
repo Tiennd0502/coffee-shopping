@@ -8,7 +8,7 @@ import { UserAddress } from '@/modules/user/user-address.entity';
 import { User } from '@/modules/user/user.entity';
 import { ORDER_CONSTANTS } from '@/shared/constants/order';
 import { DISCOUNT_TYPE } from '@/shared/enums/product';
-import { SHIPPING_METHOD_STATUS } from '@/shared/enums/order';
+import { ORDER_STATUS, SHIPPING_METHOD_STATUS } from '@/shared/enums/order';
 import { USER_STATUS } from '@/shared/enums/user';
 import { BadRequestError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
@@ -246,4 +246,35 @@ export const updateOrderShippingStatus = async ({
   log.info('Order shipping status updated', { orderId, newShippingStatus: updated.shippingStatus });
 
   return updated;
+};
+
+interface DeleteOrderOptions {
+  orderId: string;
+}
+
+export const deleteOrder = async ({ orderId }: DeleteOrderOptions): Promise<void> => {
+  log.info('Deleting order', { orderId });
+
+  const order = await orderRepo().findOne({
+    where: { id: orderId },
+    relations: ['items'],
+  });
+
+  if (!order) {
+    throw new NotFoundError('Order');
+  }
+
+  const isDeletable =
+    order.status === ORDER_STATUS.PENDING || order.status === ORDER_STATUS.CANCELLED;
+  if (!isDeletable) {
+    throw new BadRequestError(ERROR_MESSAGES.ORDER.CANNOT_DELETE_ORDER);
+  }
+
+  await AppDataSource.transaction(async (manager) => {
+    for (const item of order.items) {
+      await manager.increment(ProductVariant, { id: item.variantId }, 'quantity', item.quantity);
+    }
+
+    await manager.softDelete(Order, orderId);
+  });
 };
