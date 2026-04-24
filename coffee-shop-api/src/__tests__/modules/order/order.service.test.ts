@@ -1,7 +1,10 @@
 import AppDataSource from '@/config/database';
 import { Order } from '@/modules/order/order.entity';
-import { assertValidOrderStatusTransition } from '@/modules/order/order-state';
-import { updateOrderStatus } from '@/modules/order/order.service';
+import {
+  assertShippingTransition,
+  assertValidOrderStatusTransition,
+} from '@/modules/order/order-state';
+import { updateOrderShippingStatus, updateOrderStatus } from '@/modules/order/order.service';
 import {
   ORDER_STATUS,
   PAYMENT_METHOD,
@@ -19,14 +22,14 @@ const mockOrderRepo = {
   save: jest.fn(),
 };
 
-const makeOrder = (status: ORDER_STATUS): Order =>
+const makeOrder = (status: ORDER_STATUS, shippingStatus = SHIPPING_STATUS.PENDING): Order =>
   ({
     id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     userId: '550e8400-e29b-41d4-a716-446655440000',
     status,
     paymentStatus: PAYMENT_STATUS.UNPAID,
     paymentMethod: PAYMENT_METHOD.COD,
-    shippingStatus: SHIPPING_STATUS.PENDING,
+    shippingStatus,
     shippingMethodId: 'c56a4180-65aa-42ec-a945-5fd21dec0538',
     orderNumber: 'ORD-TEST-0001',
     shippingFee: 10000,
@@ -63,6 +66,26 @@ describe('assertValidOrderStatusTransition', () => {
     [ORDER_STATUS.CANCELLED, ORDER_STATUS.PENDING],
   ])('rejects %s -> %s', (from, to) => {
     expect(() => assertValidOrderStatusTransition(from, to)).toThrow(BadRequestError);
+  });
+});
+
+describe('assertShippingTransition', () => {
+  it.each([
+    [SHIPPING_STATUS.PENDING, SHIPPING_STATUS.SHIPPING],
+    [SHIPPING_STATUS.SHIPPING, SHIPPING_STATUS.DELIVERED],
+    [SHIPPING_STATUS.SHIPPING, SHIPPING_STATUS.RETURNED],
+  ])('allows %s -> %s', (from, to) => {
+    expect(() => assertShippingTransition(from, to)).not.toThrow();
+  });
+
+  it.each([
+    [SHIPPING_STATUS.PENDING, SHIPPING_STATUS.DELIVERED],
+    [SHIPPING_STATUS.PENDING, SHIPPING_STATUS.RETURNED],
+    [SHIPPING_STATUS.SHIPPING, SHIPPING_STATUS.SHIPPING],
+    [SHIPPING_STATUS.DELIVERED, SHIPPING_STATUS.SHIPPING],
+    [SHIPPING_STATUS.RETURNED, SHIPPING_STATUS.PENDING],
+  ])('rejects %s -> %s', (from, to) => {
+    expect(() => assertShippingTransition(from, to)).toThrow(BadRequestError);
   });
 });
 
@@ -112,6 +135,59 @@ describe('OrderService.updateOrderStatus', () => {
       updateOrderStatus({
         orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         input: { status: ORDER_STATUS.COMPLETED },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+});
+
+describe('OrderService.updateOrderShippingStatus', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest
+      .spyOn(AppDataSource, 'getRepository')
+      .mockImplementation((entity: unknown) =>
+        entity === Order ? (mockOrderRepo as never) : ({} as never),
+      );
+  });
+
+  it('transitions PENDING -> SHIPPING and returns saved order', async () => {
+    const order = makeOrder(ORDER_STATUS.CONFIRMED, SHIPPING_STATUS.PENDING);
+    const saved = { ...order, shippingStatus: SHIPPING_STATUS.SHIPPING };
+
+    mockOrderRepo.findOne.mockResolvedValue(order);
+    mockOrderRepo.save.mockResolvedValue(saved);
+
+    const result = await updateOrderShippingStatus({
+      orderId: order.id,
+      input: { shippingStatus: SHIPPING_STATUS.SHIPPING },
+    });
+
+    expect(mockOrderRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ shippingStatus: SHIPPING_STATUS.SHIPPING }),
+    );
+    expect(result.shippingStatus).toBe(SHIPPING_STATUS.SHIPPING);
+  });
+
+  it('throws NotFoundError when order does not exist', async () => {
+    mockOrderRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      updateOrderShippingStatus({
+        orderId: '11111111-2222-4333-8444-555555555555',
+        input: { shippingStatus: SHIPPING_STATUS.SHIPPING },
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws BadRequestError on invalid transition (PENDING -> DELIVERED)', async () => {
+    mockOrderRepo.findOne.mockResolvedValue(
+      makeOrder(ORDER_STATUS.CONFIRMED, SHIPPING_STATUS.PENDING),
+    );
+
+    await expect(
+      updateOrderShippingStatus({
+        orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        input: { shippingStatus: SHIPPING_STATUS.DELIVERED },
       }),
     ).rejects.toBeInstanceOf(BadRequestError);
   });
