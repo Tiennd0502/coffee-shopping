@@ -68,6 +68,19 @@ export const UpdateShippingStatusSchema = z.object({
 
 export type UpdateShippingStatusInput = z.infer<typeof UpdateShippingStatusSchema>;
 
+export const ListOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(VALIDATION_RULES.PAGINATION.DEFAULT_PAGE),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(VALIDATION_RULES.PAGINATION.MAX_LIMIT)
+    .default(VALIDATION_RULES.PAGINATION.DEFAULT_LIMIT),
+  status: z.nativeEnum(ORDER_STATUS).optional(),
+});
+
+export type ListOrdersQuery = z.infer<typeof ListOrdersQuerySchema>;
+
 const AddressSnapshotSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),

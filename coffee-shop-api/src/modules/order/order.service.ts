@@ -10,14 +10,16 @@ import { ORDER_CONSTANTS } from '@/shared/constants/order';
 import { DISCOUNT_TYPE } from '@/shared/enums/product';
 import { ORDER_STATUS, SHIPPING_METHOD_STATUS } from '@/shared/enums/order';
 import { USER_STATUS } from '@/shared/enums/user';
-import { BadRequestError, NotFoundError } from '@/shared/errors/app';
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { DiscountStrategyFactory } from '@/shared/strategies/discount/discount.factory';
 import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
+import type { PaginatedResponse } from '@/shared/types/response';
 
 import type {
   CreateOrderAddressInput,
   CreateOrderInput,
+  ListOrdersQuery,
   UpdateOrderStatusInput,
   UpdateShippingStatusInput,
 } from './order.dto';
@@ -277,4 +279,75 @@ export const deleteOrder = async ({ orderId }: DeleteOrderOptions): Promise<void
 
     await manager.softDelete(Order, orderId);
   });
+};
+
+interface ListOrdersOptions {
+  query: ListOrdersQuery;
+  requesterId: string;
+  isAdmin: boolean;
+}
+
+export const listOrders = async ({
+  query,
+  requesterId,
+  isAdmin,
+}: ListOrdersOptions): Promise<PaginatedResponse<Order[]>> => {
+  log.info('Listing orders', { requesterId, isAdmin });
+
+  const { page, limit, status } = query;
+  const qb = orderRepo()
+    .createQueryBuilder('order')
+    .leftJoinAndSelect('order.items', 'items')
+    .orderBy('order.createdAt', 'DESC')
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  if (!isAdmin) {
+    qb.andWhere('order.userId = :userId', { userId: requesterId });
+  }
+
+  if (status) {
+    qb.andWhere('order.status = :status', { status });
+  }
+
+  const [data, totalCount] = await qb.getManyAndCount();
+
+  return {
+    data,
+    meta: {
+      limit,
+      currentPage: page,
+      pageCount: Math.ceil(totalCount / limit),
+      totalCount,
+    },
+  };
+};
+
+interface GetOrderByIdOptions {
+  orderId: string;
+  requesterId: string;
+  isAdmin: boolean;
+}
+
+export const getOrderById = async ({
+  orderId,
+  requesterId,
+  isAdmin,
+}: GetOrderByIdOptions): Promise<Order> => {
+  log.info('Getting order by id', { orderId, requesterId });
+
+  const order = await orderRepo().findOne({
+    where: { id: orderId },
+    relations: ['items'],
+  });
+
+  if (!order) {
+    throw new NotFoundError('Order');
+  }
+
+  if (!isAdmin && order.userId !== requesterId) {
+    throw new ForbiddenError();
+  }
+
+  return order;
 };
