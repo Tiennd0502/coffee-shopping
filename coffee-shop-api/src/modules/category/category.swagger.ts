@@ -10,80 +10,50 @@ import {
 } from '@/config/swagger';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
-import { FIELD_KEYS } from './user.field';
-
 import {
-  CreateUserSchema,
-  UpdateUserSchema,
-  UserMeResponseSchema,
-  UserResponseSchema,
-  userRecordIdParamSchema,
-} from './user.dto';
+  CategoryResponseSchema,
+  CategorySchema,
+  ListCategoriesQuerySchema,
+  categoryIdParamSchema,
+} from './category.dto';
+import { FIELD_KEYS } from './category.field';
 
-const USER_TAG = 'Users';
-
-registry.register('CreateUserInput', CreateUserSchema);
-registry.register('UpdateUserInput', UpdateUserSchema);
-registry.register('UserResponse', UserResponseSchema);
-registry.register('UserMeResponse', UserMeResponseSchema);
+const CATEGORY_TAG = 'Categories';
 
 registry.registerPath({
   method: 'get',
-  path: '/me',
-  tags: [USER_TAG],
-  summary: 'Get user profile',
+  path: '/categories',
+  tags: [CATEGORY_TAG],
+  summary: 'List categories',
   security: [bearerAuth],
-  responses: {
-    [StatusCodes.OK]: {
-      description: 'Authenticated user',
-      content: { 'application/json': { schema: UserMeResponseSchema } },
-    },
-    [StatusCodes.UNAUTHORIZED]: unauthorized(),
-  },
-});
-
-registry.registerPath({
-  method: 'get',
-  path: '/users',
-  tags: [USER_TAG],
-  summary: 'List all users',
-  security: [bearerAuth],
-  responses: {
-    [StatusCodes.OK]: {
-      description: 'Array of users',
-      content: { 'application/json': { schema: UserResponseSchema.array() } },
-    },
-    [StatusCodes.UNAUTHORIZED]: unauthorized(),
-  },
-});
-
-registry.registerPath({
-  method: 'get',
-  path: '/users/{id}',
-  tags: [USER_TAG],
-  summary: 'Get user by UUID',
-  security: [bearerAuth],
-  request: { params: userRecordIdParamSchema },
+  request: { query: ListCategoriesQuerySchema },
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: UserResponseSchema } },
+      content: { 'application/json': { schema: CategoryResponseSchema.array() } },
     },
-    [StatusCodes.BAD_REQUEST]: badRequest({
-      errors: [
-        {
-          errCode: ErrorCode.BAD_REQUEST,
-          field: FIELD_KEYS.ID,
-          message: ERROR_MESSAGES.FIELD_INVALID(FIELD_KEYS.ID),
-        },
-      ],
-    }),
+    [StatusCodes.UNAUTHORIZED]: unauthorized(),
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/categories/{id}',
+  tags: [CATEGORY_TAG],
+  summary: 'Get category by UUID',
+  security: [bearerAuth],
+  request: { params: categoryIdParamSchema },
+  responses: {
+    [StatusCodes.OK]: {
+      description: ReasonPhrases.OK,
+      content: { 'application/json': { schema: CategoryResponseSchema } },
+    },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
     [StatusCodes.NOT_FOUND]: notFound([
       {
         errCode: ErrorCode.NOT_FOUND,
         field: FIELD_KEYS.ID,
-        message: ERROR_MESSAGES.NOT_FOUND('User'),
+        message: ERROR_MESSAGES.NOT_FOUND('Category'),
       },
     ]),
   },
@@ -91,26 +61,26 @@ registry.registerPath({
 
 registry.registerPath({
   method: 'post',
-  path: '/users',
-  tags: [USER_TAG],
-  summary: 'Create user',
+  path: '/categories',
+  tags: [CATEGORY_TAG],
+  summary: 'Create category (admin)',
   security: [bearerAuth],
   request: {
     body: {
       required: true,
-      content: { 'application/json': { schema: CreateUserSchema } },
+      content: { 'application/json': { schema: CategorySchema } },
     },
   },
   responses: {
     [StatusCodes.CREATED]: {
       description: ReasonPhrases.CREATED,
-      content: { 'application/json': { schema: UserResponseSchema } },
+      content: { 'application/json': { schema: CategoryResponseSchema } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
         {
           errCode: ErrorCode.BAD_REQUEST,
-          field: FIELD_KEYS.EMAIL,
+          field: FIELD_KEYS.NAME,
           message: ERROR_MESSAGES.INVALID_REQUEST,
         },
       ],
@@ -119,8 +89,8 @@ registry.registerPath({
     [StatusCodes.CONFLICT]: conflict([
       {
         errCode: ErrorCode.CONFLICT,
-        field: FIELD_KEYS.EMAIL,
-        message: ERROR_MESSAGES.EMAIL_EXISTS,
+        field: FIELD_KEYS.NAME,
+        message: ERROR_MESSAGES.CATEGORY_NAME_EXISTS,
       },
     ]),
   },
@@ -128,27 +98,27 @@ registry.registerPath({
 
 registry.registerPath({
   method: 'patch',
-  path: '/users/{id}',
-  tags: [USER_TAG],
-  summary: 'Update user',
+  path: '/categories/{id}',
+  tags: [CATEGORY_TAG],
+  summary: 'Update category (admin)',
   security: [bearerAuth],
   request: {
-    params: userRecordIdParamSchema,
+    params: categoryIdParamSchema,
     body: {
       required: true,
-      content: { 'application/json': { schema: UpdateUserSchema } },
+      content: { 'application/json': { schema: CategorySchema } },
     },
   },
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: UserResponseSchema } },
+      content: { 'application/json': { schema: CategoryResponseSchema } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
         {
           errCode: ErrorCode.BAD_REQUEST,
-          field: FIELD_KEYS.EMAIL,
+          field: FIELD_KEYS.NAME,
           message: ERROR_MESSAGES.INVALID_REQUEST,
         },
       ],
@@ -158,14 +128,14 @@ registry.registerPath({
       {
         errCode: ErrorCode.NOT_FOUND,
         field: FIELD_KEYS.ID,
-        message: ERROR_MESSAGES.NOT_FOUND('User'),
+        message: ERROR_MESSAGES.NOT_FOUND('Category'),
       },
     ]),
     [StatusCodes.CONFLICT]: conflict([
       {
         errCode: ErrorCode.CONFLICT,
-        field: FIELD_KEYS.EMAIL,
-        message: ERROR_MESSAGES.EMAIL_EXISTS,
+        field: FIELD_KEYS.NAME,
+        message: ERROR_MESSAGES.CATEGORY_NAME_EXISTS,
       },
     ]),
   },
@@ -173,11 +143,11 @@ registry.registerPath({
 
 registry.registerPath({
   method: 'delete',
-  path: '/users/{id}',
-  tags: [USER_TAG],
-  summary: 'Soft-delete user',
+  path: '/categories/{id}',
+  tags: [CATEGORY_TAG],
+  summary: 'Delete category (admin)',
   security: [bearerAuth],
-  request: { params: userRecordIdParamSchema },
+  request: { params: categoryIdParamSchema },
   responses: {
     [StatusCodes.NO_CONTENT]: { description: ReasonPhrases.NO_CONTENT },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
@@ -185,7 +155,7 @@ registry.registerPath({
       {
         errCode: ErrorCode.NOT_FOUND,
         field: FIELD_KEYS.ID,
-        message: ERROR_MESSAGES.NOT_FOUND('User'),
+        message: ERROR_MESSAGES.NOT_FOUND('Category'),
       },
     ]),
   },
