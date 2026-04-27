@@ -29,7 +29,7 @@ const next = jest.fn() as jest.MockedFunction<NextFunction>;
 
 const expectNextCalledWithAppError = (code: string, statusCode: number, message: string): void => {
   expect(next).toHaveBeenCalledTimes(1);
-  const err = next.mock.calls[0][0] as AppError;
+  const err = next.mock.calls[0][0] as unknown as AppError;
   expect(err).toBeInstanceOf(AppError);
   expect(err.code).toBe(code);
   expect(err.statusCode).toBe(statusCode);

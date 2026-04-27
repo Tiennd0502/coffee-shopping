@@ -46,6 +46,65 @@ export const ErrorResponseSchema = z
 registry.register('ErrorItem', ErrorItemSchema);
 registry.register('ErrorResponse', ErrorResponseSchema);
 
+export const bearerAuth = { bearerAuth: [] };
+
+type ErrorItem = z.infer<typeof ErrorItemSchema>;
+
+export const badRequest = ({ errors }: { errors: ErrorItem[] }) => ({
+  description: ReasonPhrases.BAD_REQUEST,
+  content: {
+    'application/json': {
+      schema: ErrorResponseSchema,
+      example: {
+        statusCode: StatusCodes.BAD_REQUEST,
+        message: ReasonPhrases.BAD_REQUEST,
+        errors,
+      },
+    },
+  },
+});
+
+export const unauthorized = () => ({
+  description: ReasonPhrases.UNAUTHORIZED,
+  content: {
+    'application/json': {
+      schema: ErrorResponseSchema,
+      example: {
+        statusCode: StatusCodes.UNAUTHORIZED,
+        message: ReasonPhrases.UNAUTHORIZED,
+      },
+    },
+  },
+});
+
+export const notFound = (errors: ErrorItem[]) => ({
+  description: ReasonPhrases.NOT_FOUND,
+  content: {
+    'application/json': {
+      schema: ErrorResponseSchema,
+      example: {
+        statusCode: StatusCodes.NOT_FOUND,
+        message: ReasonPhrases.NOT_FOUND,
+        errors,
+      },
+    },
+  },
+});
+
+export const conflict = (errors: ErrorItem[]) => ({
+  description: ReasonPhrases.CONFLICT,
+  content: {
+    'application/json': {
+      schema: ErrorResponseSchema,
+      example: {
+        statusCode: StatusCodes.CONFLICT,
+        message: ReasonPhrases.CONFLICT,
+        errors,
+      },
+    },
+  },
+});
+
 export const buildOpenApiDocument = (): ReturnType<OpenApiGeneratorV31['generateDocument']> => {
   const generator = new OpenApiGeneratorV31(registry.definitions);
   return generator.generateDocument({
