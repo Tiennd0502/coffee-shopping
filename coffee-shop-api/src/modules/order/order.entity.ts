@@ -7,6 +7,7 @@ import {
   PAYMENT_STATUS,
   SHIPPING_STATUS,
 } from '@/shared/enums/order';
+import { User } from '@/modules/user/user.entity';
 
 import { OrderItem } from './order-item.entity';
 import { ShippingMethod } from './shipping-method.entity';
@@ -87,6 +88,10 @@ export class Order extends BaseEntity {
   @ManyToOne(() => ShippingMethod)
   @JoinColumn({ name: 'shipping_method_id' })
   shippingMethod!: ShippingMethod;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user!: User | null;
 
   @OneToMany(() => OrderItem, (item: OrderItem) => item.order, { cascade: ['insert'] })
   items!: OrderItem[];
