@@ -7,9 +7,9 @@ Practice API for a coffee-shop style domain (users, categories, products, orders
 ## TIMELINE
 
 - Estimated time: 10 days
-- Actual time: ... days(Update later)
+- Actual time: 10 days
 
-## TECHNICAL STACK (BACKEND)
+## TECHNICAL STACK
 
 - **[Node.js](https://nodejs.org/en/docs)** v20.x
 - **[TypeScript](https://www.typescriptlang.org/docs/)** v5.9.x
@@ -212,6 +212,57 @@ erDiagram
     SHIPPING_METHOD ||--o{ ORDER : "used in"
     ORDER ||--o{ ORDER_ITEM : "contains"
 ```
+
+---
+
+## API ENDPOINTS
+
+> Base path: `/api/v1`
+> API docs `/api/api-docs`.
+>
+> **Auth:** 🔓 Public · 🔒 Authenticated (Clerk JWT) · 👑 Admin
+
+### Users
+
+| Method   | Path         | Auth | Description                    |
+| :------- | :----------- | :--- | :----------------------------- |
+| `GET`    | `/me`        | 🔒   | Get authenticated user profile |
+| `GET`    | `/users`     | 👑   | List all users                 |
+| `GET`    | `/users/:id` | 👑   | Get user by ID                 |
+| `POST`   | `/users`     | 👑   | Create user                    |
+| `PATCH`  | `/users/:id` | 👑   | Update user                    |
+| `DELETE` | `/users/:id` | 👑   | Soft-delete user               |
+
+### Categories
+
+| Method   | Path              | Auth | Description          |
+| :------- | :---------------- | :--- | :------------------- |
+| `GET`    | `/categories`     | 🔓   | List categories      |
+| `GET`    | `/categories/:id` | 🔓   | Get category by ID   |
+| `POST`   | `/categories`     | 👑   | Create category      |
+| `PATCH`  | `/categories/:id` | 👑   | Update category      |
+| `DELETE` | `/categories/:id` | 👑   | Soft-delete category |
+
+### Products
+
+| Method   | Path            | Auth | Description                                                    |
+| :------- | :-------------- | :--- | :------------------------------------------------------------- |
+| `GET`    | `/products`     | 🔓   | List products (filter by status, category, roast level, price) |
+| `GET`    | `/products/:id` | 🔓   | Get product by ID                                              |
+| `POST`   | `/products`     | 👑   | Create product                                                 |
+| `PATCH`  | `/products/:id` | 👑   | Update product                                                 |
+| `DELETE` | `/products/:id` | 👑   | Soft-delete product                                            |
+
+### Orders
+
+| Method   | Path                          | Auth | Description                           |
+| :------- | :---------------------------- | :--- | :------------------------------------ |
+| `GET`    | `/orders`                     | 🔒   | List orders                           |
+| `GET`    | `/orders/:id`                 | 🔒   | Get order by ID                       |
+| `POST`   | `/orders`                     | 🔒   | Place order                           |
+| `PATCH`  | `/orders/:id/status`          | 👑   | Update order status                   |
+| `PATCH`  | `/orders/:id/shipping-status` | 👑   | Update shipping status                |
+| `DELETE` | `/orders/:id`                 | 👑   | Delete order (pending/cancelled only) |
 
 ---
 
