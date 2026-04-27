@@ -20,6 +20,16 @@ export const toResponse = (order: Order): OrderResponse =>
   OrderResponseSchema.parse({
     id: order.id,
     userId: order.userId,
+    user: order.user
+      ? {
+          id: order.user.id,
+          email: order.user.email,
+          firstName: order.user.firstName,
+          lastName: order.user.lastName,
+          phoneNumber: order.user.phoneNumber ?? null,
+          avatarUrl: order.user.avatarUrl ?? null,
+        }
+      : null,
     orderNumber: order.orderNumber,
     shippingMethodId: order.shippingMethodId,
     paymentMethod: order.paymentMethod,

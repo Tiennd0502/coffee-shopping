@@ -77,6 +77,8 @@ export const ListOrdersQuerySchema = z.object({
     .max(VALIDATION_RULES.PAGINATION.MAX_LIMIT)
     .default(VALIDATION_RULES.PAGINATION.DEFAULT_LIMIT),
   status: z.nativeEnum(ORDER_STATUS).optional(),
+  shippingStatus: z.nativeEnum(SHIPPING_STATUS).optional(),
+  search: z.string().trim().optional(),
 });
 
 export type ListOrdersQuery = z.infer<typeof ListOrdersQuerySchema>;
@@ -108,9 +110,19 @@ export const OrderItemResponseSchema = z.object({
 
 export type OrderItemResponse = z.infer<typeof OrderItemResponseSchema>;
 
+const OrderUserResponseSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  firstName: z.string(),
+  lastName: z.string(),
+  phoneNumber: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+});
+
 export const OrderResponseSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
+  user: OrderUserResponseSchema.nullable(),
   orderNumber: z.string(),
   shippingMethodId: z.string().uuid(),
   paymentMethod: z.nativeEnum(PAYMENT_METHOD),

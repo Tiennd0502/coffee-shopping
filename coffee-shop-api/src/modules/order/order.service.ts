@@ -3,7 +3,6 @@ import { In, type Repository } from 'typeorm';
 import AppDataSource from '@/config/database';
 import { createModuleLogger } from '@/config/logger';
 import { ProductVariant } from '@/modules/product/product-variant.entity';
-import { ShippingMethod } from '@/modules/shipping/shipping-method.entity';
 import { UserAddress } from '@/modules/user/user-address.entity';
 import { User } from '@/modules/user/user.entity';
 import { ORDER_CONSTANTS } from '@/shared/constants/order';
@@ -23,6 +22,7 @@ import type {
   UpdateOrderStatusInput,
   UpdateShippingStatusInput,
 } from './order.dto';
+import { ShippingMethod } from './shipping-method.entity';
 import { Order } from './order.entity';
 import { OrderItem } from './order-item.entity';
 import { assertShippingTransition, assertValidOrderStatusTransition } from './order-state';
@@ -294,10 +294,11 @@ export const listOrders = async ({
 }: ListOrdersOptions): Promise<PaginatedResponse<Order[]>> => {
   log.info('Listing orders', { requesterId, isAdmin });
 
-  const { page, limit, status } = query;
+  const { page, limit, status, shippingStatus, search } = query;
   const qb = orderRepo()
     .createQueryBuilder('order')
     .leftJoinAndSelect('order.items', 'items')
+    .leftJoinAndSelect('order.user', 'user')
     .orderBy('order.createdAt', 'DESC')
     .skip((page - 1) * limit)
     .take(limit);
@@ -308,6 +309,23 @@ export const listOrders = async ({
 
   if (status) {
     qb.andWhere('order.status = :status', { status });
+  }
+
+  if (shippingStatus) {
+    qb.andWhere('order.shippingStatus = :shippingStatus', { shippingStatus });
+  }
+
+  if (search) {
+    qb.andWhere(
+      `(
+        order.orderNumber ILIKE :search
+        OR user.firstName ILIKE :search
+        OR user.lastName ILIKE :search
+        OR user.email ILIKE :search
+        OR user.phoneNumber ILIKE :search
+      )`,
+      { search: `%${search}%` },
+    );
   }
 
   const [data, totalCount] = await qb.getManyAndCount();
@@ -338,7 +356,7 @@ export const getOrderById = async ({
 
   const order = await orderRepo().findOne({
     where: { id: orderId },
-    relations: ['items'],
+    relations: ['items', 'user'],
   });
 
   if (!order) {
