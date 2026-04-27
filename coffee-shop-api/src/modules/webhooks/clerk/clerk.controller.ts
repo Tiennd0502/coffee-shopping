@@ -47,6 +47,7 @@ export const handleClerkWebhook = async (req: RawBodyRequest, res: Response): Pr
         firstName: data.first_name ?? '',
         lastName: data.last_name ?? '',
         phone: primaryPhone?.phone_number ?? '',
+        avatarUrl: data.image_url ?? '',
       };
 
       if (event.type === ClerkEventType.USER_CREATED) {

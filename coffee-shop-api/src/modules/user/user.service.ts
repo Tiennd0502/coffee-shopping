@@ -9,6 +9,7 @@ import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import type { PaginatedResponse } from '@/shared/types/response';
 
 import type { CreateUserInput, ListUsersQuery, UpdateUserInput } from './user.dto';
+import { UserAddress } from './user-address.entity';
 import { User } from './user.entity';
 
 export type ClerkUserFields = {
@@ -17,6 +18,7 @@ export type ClerkUserFields = {
   firstName: string;
   lastName: string;
   phone?: string;
+  avatarUrl?: string;
 };
 
 const log = createModuleLogger('UserService');
@@ -61,6 +63,9 @@ export const findAllUsers = async (query: ListUsersQuery): Promise<PaginatedResp
 
 export const findUserById = async (id: string): Promise<User> => assertUser(id);
 
+export const findUserAddressesByUserId = async (userId: string): Promise<UserAddress[]> =>
+  AppDataSource.getRepository(UserAddress).find({ where: { userId } });
+
 export const createUser = async (input: CreateUserInput): Promise<User> => {
   const existing = await userRepo().findOne({ where: { email: input.email } });
   if (existing) {
@@ -79,6 +84,7 @@ export const createUser = async (input: CreateUserInput): Promise<User> => {
     lastName: input.lastName,
     phoneNumber: input.phoneNumber ?? null,
     clerkId: input.clerkId ?? null,
+    avatarUrl: input.avatarUrl ?? null,
     status: input.status,
     role: input.role,
   });
@@ -108,6 +114,7 @@ export const updateUser = async (id: string, input: UpdateUserInput): Promise<Us
   }
   if (input.status !== undefined) user.status = input.status;
   if (input.role !== undefined) user.role = input.role;
+  if (input.avatarUrl !== undefined) user.avatarUrl = input.avatarUrl ?? null;
   return userRepo().save(user);
 };
 
@@ -145,6 +152,7 @@ export const syncClerkUserUpdated = async (fields: ClerkUserFields): Promise<voi
   found.firstName = fields.firstName;
   found.lastName = fields.lastName;
   found.phoneNumber = fields.phone ?? null;
+  found.avatarUrl = fields.avatarUrl ?? null;
   await userRepo().save(found);
 };
 
@@ -158,6 +166,7 @@ export const syncClerkUserCreated = async (fields: ClerkUserFields): Promise<voi
       phoneNumber: fields.phone ?? undefined,
       status: USER_STATUS.ACTIVE,
       role: USER_ROLE.USER,
+      avatarUrl: fields.avatarUrl ?? undefined,
     });
   } catch (err) {
     if (err instanceof AppError && err.code === ErrorCode.CONFLICT) {

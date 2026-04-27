@@ -51,6 +51,170 @@ Practice API for a coffee-shop style domain (users, categories, products, orders
 - Centralized error handling
 - Request/response validation
 
+## Entity Relationship Diagram (ERD)
+
+```mermaid
+erDiagram
+    USER {
+        uuid id PK
+        uuid clerk_id
+        uuid updated_by FK
+        string email
+        string role "ADMIN | USER"
+        string first_name
+        string last_name
+        string phone_number
+        string avatar_url
+        string status "ACTIVE | INACTIVE"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    USER_ADDRESS {
+        uuid id PK
+        uuid user_id FK
+        string first_name
+        string last_name
+        string phone_number
+        string address_line
+        string city
+        string district
+        string ward
+        string postal_code
+        boolean is_default
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    CATEGORY {
+        uuid id PK
+        uuid created_by FK
+        uuid updated_by FK
+        uuid deleted_by FK
+        string name
+        string slug
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    PRODUCT {
+        uuid id PK
+        uuid category_id FK
+        uuid created_by FK
+        uuid updated_by FK
+        uuid deleted_by FK
+        string name
+        string slug
+        string description
+        string roast_level "LIGHT | MEDIUM | DARK"
+        boolean is_organic
+        boolean is_fair_trade
+        string status "DRAFT | ACTIVE | INACTIVE | ARCHIVED"
+        string tasting_notes
+        string origin
+        string processing_method
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    PRODUCT_IMAGE {
+        uuid id PK
+        uuid product_id FK
+        string url
+        boolean is_primary
+        int sort_order
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    PRODUCT_VARIANT {
+        uuid id PK
+        uuid product_id FK
+        uuid created_by FK
+        uuid updated_by FK
+        uuid deleted_by FK
+        string sku
+        number weight
+        string unit
+        string name
+        decimal price
+        string discount_type "PERCENT | FIXED | null"
+        decimal discount_value
+        int quantity
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    SHIPPING_METHOD {
+        uuid id PK
+        uuid created_by FK
+        uuid updated_by FK
+        uuid deleted_by FK
+        string name
+        string description
+        decimal price
+        string status "ACTIVE | INACTIVE"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    ORDER {
+        uuid id PK
+        uuid user_id FK
+        uuid updated_by FK
+        uuid shipping_method_id FK
+        string order_number
+        string status "PENDING | CONFIRMED | COMPLETED | CANCELLED"
+        string shipping_status "PENDING | SHIPPING | DELIVERED | RETURNED"
+        string payment_status "UNPAID | PENDING | PAID | FAILED"
+        string payment_method "STRIPE | PAYPAL | COD"
+        decimal shipping_fee "snapshot"
+        string shipping_method_name "snapshot"
+        decimal sub_total
+        decimal tax
+        decimal total_amount
+        json address_snapshot "snapshot"
+        string note
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    ORDER_ITEM {
+        uuid id PK
+        uuid order_id FK
+        uuid product_id FK
+        uuid variant_id FK
+        string product_name "snapshot"
+        string product_image "snapshot"
+        string variant_name "snapshot"
+        decimal unit_price "snapshot"
+        decimal discount_amount
+        decimal final_price
+        int quantity
+        decimal sub_total
+    }
+
+    USER ||--o{ USER_ADDRESS : "has"
+    USER ||--o{ ORDER : "places"
+    CATEGORY ||--o{ PRODUCT : "contains"
+    PRODUCT ||--o{ PRODUCT_IMAGE : "has"
+    PRODUCT ||--o{ PRODUCT_VARIANT : "has"
+    PRODUCT ||--o{ ORDER_ITEM : "referenced in"
+    PRODUCT_VARIANT ||--o{ ORDER_ITEM : "sold as"
+    SHIPPING_METHOD ||--o{ ORDER : "used in"
+    ORDER ||--o{ ORDER_ITEM : "contains"
+```
+
+---
+
 ## GETTING STARTED
 
 | Command                                                                 | Action                 |

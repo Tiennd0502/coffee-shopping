@@ -1,14 +1,7 @@
-import {
-  Column,
-  CreateDateColumn,
-  DeleteDateColumn,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, Entity, Index } from 'typeorm';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
+import { BaseEntity } from '@/shared/entities/base';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
 
 /**
@@ -21,10 +14,7 @@ import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
   unique: true,
   where: '"deleted_at" IS NULL AND "clerk_id" IS NOT NULL',
 })
-export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
+export class User extends BaseEntity {
   /** Clerk user id (`sub`), for correlating with auth and webhooks */
   @Column({ name: 'clerk_id', type: 'varchar', length: 64, nullable: true })
   clerkId!: string | null;
@@ -46,18 +36,12 @@ export class User {
   })
   phoneNumber!: string | null;
 
+  @Column({ name: 'avatar_url', type: 'varchar', length: 500, nullable: true })
+  avatarUrl!: string | null;
+
   @Column({ name: 'status', type: 'varchar', length: 16, default: USER_STATUS.ACTIVE })
   status!: USER_STATUS;
 
   @Column({ name: 'role', type: 'varchar', length: 16, default: USER_ROLE.USER })
   role!: USER_ROLE;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @DeleteDateColumn({ name: 'deleted_at' })
-  deletedAt!: Date | null;
 }

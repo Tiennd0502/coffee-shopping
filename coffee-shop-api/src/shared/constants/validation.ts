@@ -63,6 +63,9 @@ export const VALIDATION_RULES = {
       },
     },
   },
+  IMAGE: {
+    URL_MAX_LENGTH: 500,
+  },
   ADDRESS: {
     LINE: {
       MIN_LENGTH: 5,
