@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { DISCOUNT_TYPE, PRODUCT_SORT, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
 export const CreateProductVariantSchema = z.object({
@@ -86,18 +86,40 @@ export type CreateProductInput = z.infer<typeof CreateProductSchema>;
 
 export const productIdParamSchema = z.object({ id: z.string().uuid() });
 
-export const ListProductsQuerySchema = z.object({
-  page: z.coerce.number().int().positive().default(VALIDATION_RULES.PAGINATION.DEFAULT_PAGE),
-  limit: z.coerce
-    .number()
-    .int()
-    .positive()
-    .max(VALIDATION_RULES.PAGINATION.MAX_LIMIT)
-    .default(VALIDATION_RULES.PAGINATION.DEFAULT_LIMIT),
-  status: z.nativeEnum(PRODUCT_STATUS).optional(),
-  categoryId: z.string().uuid().optional(),
-  search: z.string().trim().optional(),
-});
+export const ListProductsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().default(VALIDATION_RULES.PAGINATION.DEFAULT_PAGE),
+    limit: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(VALIDATION_RULES.PAGINATION.MAX_LIMIT)
+      .default(VALIDATION_RULES.PAGINATION.DEFAULT_LIMIT),
+    status: z.nativeEnum(PRODUCT_STATUS).optional(),
+    categoryId: z.string().uuid().optional(),
+    search: z.string().trim().optional(),
+    roastLevel: z
+      .string()
+      .transform((v) => v.split(',') as ROAST_LEVEL[])
+      .pipe(z.array(z.nativeEnum(ROAST_LEVEL)).min(1))
+      .optional(),
+    minPrice: z.coerce.number().positive().optional(),
+    maxPrice: z.coerce.number().positive().optional(),
+    sortBy: z.nativeEnum(PRODUCT_SORT).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.minPrice !== undefined &&
+      data.maxPrice !== undefined &&
+      data.minPrice > data.maxPrice
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'minPrice must be less than or equal to maxPrice',
+        path: ['minPrice'],
+      });
+    }
+  });
 
 export type ListProductsQuery = z.infer<typeof ListProductsQuerySchema>;
 

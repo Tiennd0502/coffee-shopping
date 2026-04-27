@@ -15,3 +15,10 @@ export enum DISCOUNT_TYPE {
   PERCENT = 'PERCENT',
   FIXED = 'FIXED',
 }
+
+export enum PRODUCT_SORT {
+  PRICE_ASC = 'PRICE_ASC',
+  PRICE_DESC = 'PRICE_DESC',
+  NAME_ASC = 'NAME_ASC',
+  NAME_DESC = 'NAME_DESC',
+}

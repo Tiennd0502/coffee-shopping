@@ -1,12 +1,12 @@
 import AppDataSource from '@/config/database';
 import { In } from 'typeorm';
 import { Category } from '@/modules/category/category.entity';
-import type { UpdateProductInput } from '@/modules/product/product.dto';
+import type { ListProductsQuery, UpdateProductInput } from '@/modules/product/product.dto';
 import { ProductImage } from '@/modules/product/product-image.entity';
 import { ProductVariant } from '@/modules/product/product-variant.entity';
 import { Product } from '@/modules/product/product.entity';
-import { updateProduct } from '@/modules/product/product.service';
-import { PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { findAllProducts, updateProduct } from '@/modules/product/product.service';
+import { PRODUCT_SORT, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { slugFrom } from '@/shared/utils/slug';
 
@@ -270,12 +270,10 @@ describe('ProductService.updateProduct', () => {
       updateImages: [{ id: EXISTING_IMAGE_ID, isPrimary: true, sortOrder: 5 }],
     };
 
-    mockProductRepo.findOne
-      .mockResolvedValueOnce(existing)
-      .mockResolvedValueOnce({
-        ...existing,
-        images: [{ ...target, isPrimary: true, sortOrder: 5 }],
-      });
+    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce({
+      ...existing,
+      images: [{ ...target, isPrimary: true, sortOrder: 5 }],
+    });
     mockProductRepo.save.mockResolvedValue(existing);
     mockImageRepo.find
       .mockResolvedValueOnce([target])
@@ -387,5 +385,177 @@ describe('ProductService.updateProduct', () => {
     expect(mockImageRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ url: 'https://example.com/new.jpg', productId: PRODUCT_ID }),
     );
+  });
+});
+
+describe('ProductService.findAllProducts', () => {
+  const mockQb = {
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn(),
+  };
+
+  const mockListRepo = {
+    createQueryBuilder: jest.fn(() => mockQb),
+    find: jest.fn(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+    mockQb.orderBy.mockReturnThis();
+    mockQb.skip.mockReturnThis();
+    mockQb.take.mockReturnThis();
+    mockQb.andWhere.mockReturnThis();
+    jest.spyOn(AppDataSource, 'getRepository').mockReturnValue(mockListRepo as never);
+  });
+
+  const DEFAULT_QUERY: ListProductsQuery = { page: 1, limit: 10 };
+  const STUB_PRODUCT = { id: PRODUCT_ID } as Product;
+  const STUB_FULL = { id: PRODUCT_ID, variants: [], images: [] } as unknown as Product;
+
+  it('returns empty result and skips relation load when no products found', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    const result = await findAllProducts(DEFAULT_QUERY);
+
+    expect(result.data).toEqual([]);
+    expect(result.meta!.totalCount).toBe(0);
+    expect(mockListRepo.find).not.toHaveBeenCalled();
+  });
+
+  it('returns paginated result with correct meta', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[STUB_PRODUCT], 1]);
+    mockListRepo.find.mockResolvedValue([STUB_FULL]);
+
+    const result = await findAllProducts(DEFAULT_QUERY);
+
+    expect(result.data).toHaveLength(1);
+    expect(result.meta!.totalCount).toBe(1);
+    expect(result.meta!.currentPage).toBe(1);
+    expect(result.meta!.pageCount).toBe(1);
+  });
+
+  it('applies status filter', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, status: PRODUCT_STATUS.ACTIVE });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith('product.status = :status', {
+      status: PRODUCT_STATUS.ACTIVE,
+    });
+  });
+
+  it('applies categoryId filter', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, categoryId: OLD_CATEGORY_ID });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith('product.categoryId = :categoryId', {
+      categoryId: OLD_CATEGORY_ID,
+    });
+  });
+
+  it('applies single roastLevel filter', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, roastLevel: [ROAST_LEVEL.DARK] });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith('product.roastLevel IN (:...roastLevels)', {
+      roastLevels: [ROAST_LEVEL.DARK],
+    });
+  });
+
+  it('applies multiple roastLevel filter', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, roastLevel: [ROAST_LEVEL.DARK, ROAST_LEVEL.LIGHT] });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith('product.roastLevel IN (:...roastLevels)', {
+      roastLevels: [ROAST_LEVEL.DARK, ROAST_LEVEL.LIGHT],
+    });
+  });
+
+  it('applies search filter with ILIKE on name and slug', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, search: 'Ethiopia' });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith(
+      'product.name ILIKE :search OR product.slug ILIKE :search',
+      { search: '%Ethiopia%' },
+    );
+  });
+
+  it('applies minPrice filter via correlated subquery on min variant price', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, minPrice: 10 });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), {
+      minPrice: 10,
+    });
+  });
+
+  it('applies maxPrice filter via correlated subquery on min variant price', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, maxPrice: 50 });
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), {
+      maxPrice: 50,
+    });
+  });
+
+  it.each([
+    [PRODUCT_SORT.NAME_ASC, 'product.name', 'ASC'],
+    [PRODUCT_SORT.NAME_DESC, 'product.name', 'DESC'],
+  ] as const)('sorts by %s → orderBy(%s, %s)', async (sortBy, field, dir) => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, sortBy });
+
+    expect(mockQb.orderBy).toHaveBeenCalledWith(field, dir);
+  });
+
+  it('sorts by PRICE_ASC using min-variant subquery', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, sortBy: PRODUCT_SORT.PRICE_ASC });
+
+    expect(mockQb.orderBy).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), 'ASC');
+  });
+
+  it('sorts by PRICE_DESC using min-variant subquery', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts({ ...DEFAULT_QUERY, sortBy: PRODUCT_SORT.PRICE_DESC });
+
+    expect(mockQb.orderBy).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), 'DESC');
+  });
+
+  it('defaults to curated sort (createdAt DESC) when sortBy is omitted', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await findAllProducts(DEFAULT_QUERY);
+
+    expect(mockQb.orderBy).toHaveBeenCalledWith('product.createdAt', 'DESC');
+  });
+
+  it('preserves original sort order of ids returned by pagination query', async () => {
+    const P1 = { id: PRODUCT_ID } as Product;
+    const P2 = { id: OTHER_PRODUCT_ID } as Product;
+    const FULL_P1 = { ...P1, variants: [], images: [] } as unknown as Product;
+    const FULL_P2 = { ...P2, variants: [], images: [] } as unknown as Product;
+
+    mockQb.getManyAndCount.mockResolvedValue([[P1, P2], 2]);
+    mockListRepo.find.mockResolvedValue([FULL_P2, FULL_P1]);
+
+    const result = await findAllProducts(DEFAULT_QUERY);
+
+    expect(result.data[0].id).toBe(PRODUCT_ID);
+    expect(result.data[1].id).toBe(OTHER_PRODUCT_ID);
   });
 });

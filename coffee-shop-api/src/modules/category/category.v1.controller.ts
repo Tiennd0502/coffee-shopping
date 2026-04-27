@@ -17,20 +17,20 @@ export const listCategories = catchAsync(async (req: Request, res: Response) => 
 export const getCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = parseOrThrow(categoryIdParamSchema.safeParse(req.params));
   const category = await categoryService.findCategoryById(id);
-  res.status(StatusCodes.OK).json(toResponse(category));
+  res.status(StatusCodes.OK).json({ data: toResponse(category) });
 });
 
 export const createCategory = catchAsync(async (req: Request, res: Response) => {
   const body = parseOrThrow(CategorySchema.safeParse(req.body));
   const category = await categoryService.createCategory(body, req.userId!);
-  res.status(StatusCodes.CREATED).json(toResponse(category));
+  res.status(StatusCodes.CREATED).json({ data: toResponse(category) });
 });
 
 export const updateCategory = catchAsync(async (req: Request, res: Response) => {
   const { id } = parseOrThrow(categoryIdParamSchema.safeParse(req.params));
   const body = parseOrThrow(CategorySchema.safeParse(req.body));
   const category = await categoryService.updateCategory(id, body, req.userId!);
-  res.status(StatusCodes.OK).json(toResponse(category));
+  res.status(StatusCodes.OK).json({ data: toResponse(category) });
 });
 
 export const deleteCategory = catchAsync(async (req: Request, res: Response) => {

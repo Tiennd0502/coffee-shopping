@@ -1,7 +1,8 @@
-import { Column, Entity, Index, OneToMany } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 
 import { AuditableEntity } from '@/shared/entities/auditable';
 import { PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { Category } from '@/modules/category/category.entity';
 
 import { ProductImage } from './product-image.entity';
 import { ProductVariant } from './product-variant.entity';
@@ -11,6 +12,10 @@ import { ProductVariant } from './product-variant.entity';
 export class Product extends AuditableEntity {
   @Column({ name: 'category_id', type: 'uuid' })
   categoryId!: string;
+
+  @ManyToOne(() => Category)
+  @JoinColumn({ name: 'category_id' })
+  category!: Category;
 
   @Column({ name: 'name', type: 'varchar', length: 200 })
   name!: string;
