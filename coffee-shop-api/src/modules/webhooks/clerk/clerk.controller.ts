@@ -12,6 +12,7 @@ import {
   syncClerkUserDeleted,
   syncClerkUserUpdated,
 } from '@/modules/user/user.service';
+import { USER_ROLE } from '@/shared/enums/user';
 import type { RawBodyRequest } from '@/shared/types/request';
 
 import { ClerkEventType } from './clerk.events';
@@ -48,6 +49,7 @@ export const handleClerkWebhook = async (req: RawBodyRequest, res: Response): Pr
         lastName: data.last_name ?? '',
         phone: primaryPhone?.phone_number ?? '',
         avatarUrl: data.image_url ?? '',
+        role: (data.public_metadata?.role as USER_ROLE) ?? undefined,
       };
 
       if (event.type === ClerkEventType.USER_CREATED) {
