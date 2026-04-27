@@ -1,8 +1,9 @@
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, Index, OneToMany } from 'typeorm';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { BaseEntity } from '@/shared/entities/base';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { UserAddress } from '@/modules/user/user-address.entity';
 
 /**
  * Uniqueness for email / clerkId applies only to non–soft-deleted rows so a
@@ -44,4 +45,7 @@ export class User extends BaseEntity {
 
   @Column({ name: 'role', type: 'varchar', length: 16, default: USER_ROLE.USER })
   role!: USER_ROLE;
+
+  @OneToMany(() => UserAddress, (userAddress) => userAddress.user)
+  addresses!: UserAddress[];
 }

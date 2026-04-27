@@ -1,12 +1,17 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { BaseEntity } from '@/shared/entities/base';
+import { User } from '@/modules/user/user.entity';
 
 @Entity('user_addresses')
 export class UserAddress extends BaseEntity {
   @Column({ name: 'user_id', type: 'uuid' })
   userId!: string;
+
+  @ManyToOne(() => User, (user) => user.addresses, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user!: User;
 
   @Column({ name: 'first_name', type: 'varchar', length: 100 })
   firstName!: string;
