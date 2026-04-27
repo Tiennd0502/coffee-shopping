@@ -23,7 +23,7 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
 
 export const listUsers = catchAsync(async (req: Request, res: Response) => {
   const query = parseOrThrow(ListUsersQuerySchema.safeParse(req.query));
-  const result = await userService.findAllUsers(query);
+  const result = await userService.findAllUsers(query, req.userId!);
   res.status(StatusCodes.OK).json({ data: result.data.map(toResponse), meta: result.meta });
 });
 

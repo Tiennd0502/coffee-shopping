@@ -12,4 +12,5 @@ export const ENV_ERRORS = {
   DB_USER_REQUIRED: 'DB_USER is required',
   DB_PASSWORD_REQUIRED: 'DB_PASSWORD is required',
   CLERK_WEBHOOK_SECRET_REQUIRED: 'CLERK_WEBHOOK_SECRET is required',
+  CLERK_SECRET_KEY_REQUIRED: 'CLERK_SECRET_KEY is required',
 } as const;

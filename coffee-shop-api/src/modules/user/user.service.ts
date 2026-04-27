@@ -1,3 +1,4 @@
+import { clerkClient } from '@/config/clerk';
 import type { Repository } from 'typeorm';
 
 import AppDataSource from '@/config/database';
@@ -19,6 +20,7 @@ export type ClerkUserFields = {
   lastName: string;
   phone?: string;
   avatarUrl?: string;
+  role?: USER_ROLE;
 };
 
 const log = createModuleLogger('UserService');
@@ -33,7 +35,10 @@ const assertUser = async (id: string): Promise<User> => {
   return found;
 };
 
-export const findAllUsers = async (query: ListUsersQuery): Promise<PaginatedResponse<User[]>> => {
+export const findAllUsers = async (
+  query: ListUsersQuery,
+  currentUserId: string,
+): Promise<PaginatedResponse<User[]>> => {
   const { page, limit, role, status, search } = query;
   const qb = userRepo()
     .createQueryBuilder('user')
@@ -41,6 +46,7 @@ export const findAllUsers = async (query: ListUsersQuery): Promise<PaginatedResp
     .skip((page - 1) * limit)
     .take(limit);
 
+  qb.andWhere('user.id != :currentUserId', { currentUserId });
   if (role) qb.andWhere('user.role = :role', { role });
   if (status) qb.andWhere('user.status = :status', { status });
   if (search) {
@@ -93,6 +99,7 @@ export const createUser = async (input: CreateUserInput): Promise<User> => {
 
 export const updateUser = async (id: string, input: UpdateUserInput): Promise<User> => {
   const user = await assertUser(id);
+  const previousRole = user.role;
   if (input.email !== undefined && input.email !== user.email) {
     const taken = await userRepo().findOne({ where: { email: input.email } });
     if (taken) {
@@ -113,9 +120,25 @@ export const updateUser = async (id: string, input: UpdateUserInput): Promise<Us
     user.clerkId = input.clerkId;
   }
   if (input.status !== undefined) user.status = input.status;
-  if (input.role !== undefined) user.role = input.role;
   if (input.avatarUrl !== undefined) user.avatarUrl = input.avatarUrl ?? null;
-  return userRepo().save(user);
+
+  const roleChanged = input.role !== undefined && input.role !== previousRole;
+  if (roleChanged && !user.clerkId) user.role = input.role!;
+
+  const saved = await userRepo().save(user);
+  // Has clerkId — push to Clerk, webhook will sync role back to DB
+  if (roleChanged && saved.clerkId) {
+    try {
+      await clerkClient.users.updateUser(saved.clerkId, {
+        publicMetadata: { role: input.role },
+      });
+      log.info('Synced role to Clerk', { userId: saved.id, role: input.role });
+    } catch (err) {
+      log.error('Failed to sync role to Clerk', { userId: saved.id, role: input.role, err });
+    }
+  }
+
+  return saved;
 };
 
 export const removeUser = async (id: string): Promise<void> => {
@@ -153,12 +176,13 @@ export const syncClerkUserUpdated = async (fields: ClerkUserFields): Promise<voi
   found.lastName = fields.lastName;
   found.phoneNumber = fields.phone ?? null;
   found.avatarUrl = fields.avatarUrl ?? null;
+  if (fields.role !== undefined) found.role = fields.role;
   await userRepo().save(found);
 };
 
 export const syncClerkUserCreated = async (fields: ClerkUserFields): Promise<void> => {
   try {
-    await createUser({
+    const user = await createUser({
       clerkId: fields.clerkId,
       email: fields.email,
       firstName: fields.firstName,
@@ -168,6 +192,15 @@ export const syncClerkUserCreated = async (fields: ClerkUserFields): Promise<voi
       role: USER_ROLE.USER,
       avatarUrl: fields.avatarUrl ?? undefined,
     });
+
+    try {
+      await clerkClient.users.updateUser(fields.clerkId, {
+        publicMetadata: { role: user.role },
+      });
+      log.info('Synced initial role to Clerk', { userId: user.id, role: user.role });
+    } catch (err) {
+      log.error('Failed to sync initial role to Clerk', { clerkId: fields.clerkId, err });
+    }
   } catch (err) {
     if (err instanceof AppError && err.code === ErrorCode.CONFLICT) {
       log.warn('Clerk user already synced, skipping', { clerkId: fields.clerkId });
