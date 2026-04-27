@@ -10,12 +10,15 @@ import {
   UpdateUserSchema,
   userRecordIdParamSchema,
 } from './user.dto';
-import { toResponse } from './user.mapper';
+import { toMeResponse, toResponse } from './user.mapper';
 import * as userService from './user.service';
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
-  const user = await userService.findUserById(req.userId!);
-  res.status(StatusCodes.OK).json(toResponse(user));
+  const [user, addresses] = await Promise.all([
+    userService.findUserById(req.userId!),
+    userService.findUserAddressesByUserId(req.userId!),
+  ]);
+  res.status(StatusCodes.OK).json({ data: toMeResponse(user, addresses) });
 });
 
 export const listUsers = catchAsync(async (req: Request, res: Response) => {
@@ -27,20 +30,20 @@ export const listUsers = catchAsync(async (req: Request, res: Response) => {
 export const getUser = catchAsync(async (req: Request, res: Response) => {
   const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
   const user = await userService.findUserById(id);
-  res.status(StatusCodes.OK).json(toResponse(user));
+  res.status(StatusCodes.OK).json({ data: toResponse(user) });
 });
 
 export const createUser = catchAsync(async (req: Request, res: Response) => {
   const body = parseOrThrow(CreateUserSchema.safeParse(req.body));
   const user = await userService.createUser(body);
-  res.status(StatusCodes.CREATED).json(toResponse(user));
+  res.status(StatusCodes.CREATED).json({ data: toResponse(user) });
 });
 
 export const updateUser = catchAsync(async (req: Request, res: Response) => {
   const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
   const body = parseOrThrow(UpdateUserSchema.safeParse(req.body));
   const user = await userService.updateUser(id, body);
-  res.status(StatusCodes.OK).json(toResponse(user));
+  res.status(StatusCodes.OK).json({ data: toResponse(user) });
 });
 
 export const deleteUser = catchAsync(async (req: Request, res: Response) => {
