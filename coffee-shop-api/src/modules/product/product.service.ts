@@ -1,10 +1,11 @@
-import type { EntityManager, Repository } from 'typeorm';
+import type { EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { In } from 'typeorm';
 
 import AppDataSource from '@/config/database';
 import { createModuleLogger } from '@/config/logger';
 import { Category } from '@/modules/category/category.entity';
 import { VALIDATION_RULES } from '@/shared/constants/validation';
+import { PRODUCT_SORT } from '@/shared/enums/product';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { withRandomSkuSuffix } from '@/shared/utils/sku';
@@ -170,26 +171,57 @@ export const findProductById = async (id: string): Promise<Product> => {
   return full;
 };
 
+const PRICE_SUBQUERY =
+  '(SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = product.id AND v.deleted_at IS NULL)';
+
+const applySortOrder = (
+  qb: SelectQueryBuilder<Product>,
+  sortBy: PRODUCT_SORT | undefined,
+): void => {
+  switch (sortBy) {
+    case PRODUCT_SORT.PRICE_ASC:
+      qb.orderBy(PRICE_SUBQUERY, 'ASC');
+      break;
+    case PRODUCT_SORT.PRICE_DESC:
+      qb.orderBy(PRICE_SUBQUERY, 'DESC');
+      break;
+    case PRODUCT_SORT.NAME_ASC:
+      qb.orderBy('product.name', 'ASC');
+      break;
+    case PRODUCT_SORT.NAME_DESC:
+      qb.orderBy('product.name', 'DESC');
+      break;
+    default:
+      qb.orderBy('product.createdAt', 'DESC');
+  }
+};
+
 export const findAllProducts = async (
   query: ListProductsQuery,
 ): Promise<PaginatedResponse<Product[]>> => {
-  const { page, limit, search, status, categoryId } = query;
+  const { page, limit, search, status, categoryId, roastLevel, minPrice, maxPrice, sortBy } = query;
 
-  const qb = productRepo()
-    .createQueryBuilder('product')
-    .orderBy('product.createdAt', 'DESC')
-    .skip((page - 1) * limit)
-    .take(limit);
+  const qb = productRepo().createQueryBuilder('product');
 
   if (status) qb.andWhere('product.status = :status', { status });
-
   if (categoryId) qb.andWhere('product.categoryId = :categoryId', { categoryId });
-
+  if (roastLevel?.length)
+    qb.andWhere('product.roastLevel IN (:...roastLevels)', { roastLevels: roastLevel });
   if (search) {
     qb.andWhere('product.name ILIKE :search OR product.slug ILIKE :search', {
       search: `%${search}%`,
     });
   }
+  if (minPrice !== undefined) {
+    qb.andWhere(`${PRICE_SUBQUERY} >= :minPrice`, { minPrice });
+  }
+  if (maxPrice !== undefined) {
+    qb.andWhere(`${PRICE_SUBQUERY} <= :maxPrice`, { maxPrice });
+  }
+
+  applySortOrder(qb, sortBy);
+
+  qb.skip((page - 1) * limit).take(limit);
 
   const [data, totalCount] = await qb.getManyAndCount();
   if (data.length === 0) {
