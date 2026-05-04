@@ -2,7 +2,7 @@ import { getAuth } from '@clerk/express';
 import { StatusCodes } from 'http-status-codes';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
-import { findUserByClerkId } from '@/modules/user/user.service';
+import { userService } from '@/container';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
 import { AppError, ForbiddenError, UnauthorizedError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
@@ -29,7 +29,7 @@ export const requireAuthenticated: RequestHandler = async (
     throw new UnauthorizedError();
   }
 
-  const user = await findUserByClerkId(clerkId);
+  const user = await userService.findByClerkId(clerkId);
   if (!user) {
     throw new UnauthorizedError();
   }

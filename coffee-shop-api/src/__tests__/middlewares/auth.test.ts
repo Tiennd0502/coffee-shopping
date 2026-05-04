@@ -13,8 +13,10 @@ jest.mock('@clerk/express', () => ({
   getAuth: (...args: unknown[]) => mockGetAuth(...args),
 }));
 
-jest.mock('@/modules/user/user.service', () => ({
-  findUserByClerkId: (...args: unknown[]) => mockFindUserByClerkId(...args),
+jest.mock('@/container', () => ({
+  userService: {
+    findByClerkId: (...args: unknown[]) => mockFindUserByClerkId(...args),
+  },
 }));
 
 const createMockRequest = (overrides: Partial<Request> = {}): Request =>

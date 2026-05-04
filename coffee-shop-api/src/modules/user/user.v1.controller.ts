@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import { catchAsync } from '@/shared/utils/async-handler';
 import { parseOrThrow } from '@/shared/utils/validation';
 
 import {
@@ -10,44 +9,57 @@ import {
   UpdateUserSchema,
   userRecordIdParamSchema,
 } from './user.dto';
-import { toMeResponse, toResponse } from './user.mapper';
-import * as userService from './user.service';
+import { UserMapper } from './user.mapper';
+import type { UserService } from './user.service';
 
-export const getMe = catchAsync(async (req: Request, res: Response) => {
-  const [user, addresses] = await Promise.all([
-    userService.findUserById(req.userId!),
-    userService.findUserAddressesByUserId(req.userId!),
-  ]);
-  res.status(StatusCodes.OK).json({ data: toMeResponse(user, addresses) });
-});
+export class UserController {
+  constructor(private readonly service: UserService) {}
 
-export const listUsers = catchAsync(async (req: Request, res: Response) => {
-  const query = parseOrThrow(ListUsersQuerySchema.safeParse(req.query));
-  const result = await userService.findAllUsers(query, req.userId!);
-  res.status(StatusCodes.OK).json({ data: result.data.map(toResponse), meta: result.meta });
-});
+  getMe = async (req: Request, res: Response): Promise<void> => {
+    const [user, addresses] = await Promise.all([
+      this.service.findById(req.userId!),
+      this.service.findAddressesByUserId(req.userId!),
+    ]);
 
-export const getUser = catchAsync(async (req: Request, res: Response) => {
-  const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
-  const user = await userService.findUserById(id);
-  res.status(StatusCodes.OK).json({ data: toResponse(user) });
-});
+    res.status(StatusCodes.OK).json({ data: UserMapper.toMeResponse(user, addresses) });
+  };
 
-export const createUser = catchAsync(async (req: Request, res: Response) => {
-  const body = parseOrThrow(CreateUserSchema.safeParse(req.body));
-  const user = await userService.createUser(body);
-  res.status(StatusCodes.CREATED).json({ data: toResponse(user) });
-});
+  list = async (req: Request, res: Response): Promise<void> => {
+    const query = parseOrThrow(ListUsersQuerySchema.safeParse(req.query));
+    const result = await this.service.findAll(query, req.userId!);
 
-export const updateUser = catchAsync(async (req: Request, res: Response) => {
-  const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
-  const body = parseOrThrow(UpdateUserSchema.safeParse(req.body));
-  const user = await userService.updateUser(id, body);
-  res.status(StatusCodes.OK).json({ data: toResponse(user) });
-});
+    res.status(StatusCodes.OK).json({
+      data: result.data.map(UserMapper.toResponse),
+      meta: result.meta,
+    });
+  };
 
-export const deleteUser = catchAsync(async (req: Request, res: Response) => {
-  const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
-  await userService.removeUser(id);
-  res.status(StatusCodes.NO_CONTENT).send();
-});
+  get = async (req: Request, res: Response): Promise<void> => {
+    const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
+    const user = await this.service.findById(id);
+
+    res.status(StatusCodes.OK).json({ data: UserMapper.toResponse(user) });
+  };
+
+  create = async (req: Request, res: Response): Promise<void> => {
+    const body = parseOrThrow(CreateUserSchema.safeParse(req.body));
+    const user = await this.service.create(body);
+
+    res.status(StatusCodes.CREATED).json({ data: UserMapper.toResponse(user) });
+  };
+
+  update = async (req: Request, res: Response): Promise<void> => {
+    const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
+    const body = parseOrThrow(UpdateUserSchema.safeParse(req.body));
+    const user = await this.service.update(id, body);
+
+    res.status(StatusCodes.OK).json({ data: UserMapper.toResponse(user) });
+  };
+
+  remove = async (req: Request, res: Response): Promise<void> => {
+    const { id } = parseOrThrow(userRecordIdParamSchema.safeParse(req.params));
+    await this.service.remove(id);
+
+    res.status(StatusCodes.NO_CONTENT).send();
+  };
+}

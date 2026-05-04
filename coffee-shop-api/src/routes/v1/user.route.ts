@@ -3,8 +3,8 @@ import type { ErrorRequestHandler } from 'express';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
+import { userController } from '@/container';
 import { requireAdmin, requireAuthenticated } from '@/middlewares/auth';
-import * as userController from '@/modules/user/user.v1.controller';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
@@ -26,10 +26,10 @@ router.use(requireAuthenticated);
 router.get('/me', userController.getMe);
 
 router.use('/users', requireAdmin);
-router.get('/users', userController.listUsers);
-router.get('/users/:id', userController.getUser);
-router.post('/users', userController.createUser);
-router.patch('/users/:id', userController.updateUser);
-router.delete('/users/:id', userController.deleteUser);
+router.get('/users', userController.list);
+router.get('/users/:id', userController.get);
+router.post('/users', userController.create);
+router.patch('/users/:id', userController.update);
+router.delete('/users/:id', userController.remove);
 
 export default router;
