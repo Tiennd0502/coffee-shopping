@@ -139,6 +139,7 @@ export const OrderResponseSchema = z.object({
   items: z.array(OrderItemResponseSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
+  deletedAt: z.string().nullable(),
 });
 
 export type OrderResponse = z.infer<typeof OrderResponseSchema>;

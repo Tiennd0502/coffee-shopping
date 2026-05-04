@@ -3,8 +3,8 @@ import type { ErrorRequestHandler } from 'express';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
+import { orderController } from '@/container';
 import { requireAdmin, requireAuthenticated } from '@/middlewares/auth';
-import * as orderController from '@/modules/order/order.v1.controller';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
@@ -23,13 +23,13 @@ router.use(clerkMiddleware());
 router.use(clerkErrorHandler);
 router.use(requireAuthenticated);
 
-router.get('/', orderController.listOrders);
-router.get('/:id', orderController.getOrderDetail);
-router.post('/', orderController.createOrder);
+router.get('/', orderController.list);
+router.get('/:id', orderController.get);
+router.post('/', orderController.create);
 
 router.use(requireAdmin);
-router.patch('/:id/status', orderController.updateOrderStatus);
-router.patch('/:id/shipping-status', orderController.updateOrderShippingStatus);
-router.delete('/:id', orderController.deleteOrder);
+router.patch('/:id/status', orderController.updateStatus);
+router.patch('/:id/shipping-status', orderController.updateShippingStatus);
+router.delete('/:id', orderController.remove);
 
 export default router;

@@ -1,16 +1,17 @@
-import { In, type Repository } from 'typeorm';
+import { type DataSource, type EntityManager } from 'typeorm';
 
-import AppDataSource from '@/config/database';
 import { createModuleLogger } from '@/config/logger';
 import { ProductVariant } from '@/modules/product/product-variant.entity';
+import type { ProductVariantRepository } from '@/modules/product/product-variant.repository';
+import type { UserRepository } from '@/modules/user/user.repository';
 import { UserAddress } from '@/modules/user/user-address.entity';
-import { User } from '@/modules/user/user.entity';
 import { ORDER_CONSTANTS } from '@/shared/constants/order';
 import { DISCOUNT_TYPE } from '@/shared/enums/product';
-import { ORDER_STATUS, SHIPPING_METHOD_STATUS } from '@/shared/enums/order';
+import { ORDER_STATUS } from '@/shared/enums/order';
 import { USER_STATUS } from '@/shared/enums/user';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
+import { BaseService } from '@/shared/services/base.service';
 import { DiscountStrategyFactory } from '@/shared/strategies/discount/discount.factory';
 import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
 import type { PaginatedResponse } from '@/shared/types/response';
@@ -22,17 +23,13 @@ import type {
   UpdateOrderStatusInput,
   UpdateShippingStatusInput,
 } from './order.dto';
-import { ShippingMethod } from './shipping-method.entity';
 import { Order } from './order.entity';
 import { OrderItem } from './order-item.entity';
 import { assertShippingTransition, assertValidOrderStatusTransition } from './order-state';
+import type { OrderRepository } from './order.repository';
+import type { ShippingMethodRepository } from './shipping-method.repository';
 
 const log = createModuleLogger('OrderService');
-
-const userRepo = (): Repository<User> => AppDataSource.getRepository(User);
-const shippingRepo = (): Repository<ShippingMethod> => AppDataSource.getRepository(ShippingMethod);
-const variantRepo = (): Repository<ProductVariant> => AppDataSource.getRepository(ProductVariant);
-const orderRepo = (): Repository<Order> => AppDataSource.getRepository(Order);
 
 const generateOrderNumber = (): string => {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -51,87 +48,292 @@ const toAddressSnapshot = (address: UserAddress | CreateOrderAddressInput) => ({
   postalCode: address.postalCode?.trim() || undefined,
 });
 
-export const createOrder = async (input: CreateOrderInput, userId: string): Promise<Order> => {
-  log.info('Placing order', { userId, itemCount: input.items.length });
+export interface OrderServiceDeps {
+  orderRepo: OrderRepository;
+  userRepo: UserRepository;
+  shippingRepo: ShippingMethodRepository;
+  variantRepo: ProductVariantRepository;
+  dataSource: DataSource;
+}
 
-  const user = await userRepo().findOne({ where: { id: userId } });
-  if (!user) throw new NotFoundError('User');
-  if (user.status !== USER_STATUS.ACTIVE) {
-    throw new BadRequestError(ERROR_MESSAGES.ORDER.USER_INACTIVE);
+export class OrderService extends BaseService<Order, OrderRepository> {
+  private readonly userRepo: UserRepository;
+  private readonly shippingRepo: ShippingMethodRepository;
+  private readonly variantRepo: ProductVariantRepository;
+  private readonly dataSource: DataSource;
+
+  constructor(dependencies: OrderServiceDeps) {
+    super(dependencies.orderRepo);
+    this.userRepo = dependencies.userRepo;
+    this.shippingRepo = dependencies.shippingRepo;
+    this.variantRepo = dependencies.variantRepo;
+    this.dataSource = dependencies.dataSource;
   }
 
-  const shippingMethod = await shippingRepo().findOne({
-    where: { id: input.shippingMethodId, status: SHIPPING_METHOD_STATUS.ACTIVE },
-  });
-  if (!shippingMethod) {
-    throw new NotFoundError('Shipping method');
-  }
+  async create(input: CreateOrderInput, userId: string): Promise<Order> {
+    log.info('Placing order', { userId, itemCount: input.items.length });
 
-  const variantIds = input.items.map((i) => i.variantId);
-  if (new Set(variantIds).size !== variantIds.length) {
-    throw new BadRequestError(ERROR_MESSAGES.ORDER.DUPLICATE_VARIANT);
-  }
-
-  const variants = await variantRepo().find({
-    where: { id: In(variantIds) },
-    relations: ['product', 'product.images'],
-  });
-
-  const variantMap = new Map(variants.map((v) => [v.id, v]));
-
-  for (const item of input.items) {
-    const variant = variantMap.get(item.variantId);
-    if (!variant) {
-      throw new NotFoundError('Product variant');
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User');
     }
-    if (variant.quantity < item.quantity) {
-      throw new BadRequestError(
-        ERROR_MESSAGES.ORDER.INSUFFICIENT_STOCK(variant.sku, variant.quantity),
+    if (user.status !== USER_STATUS.ACTIVE) {
+      throw new BadRequestError(ERROR_MESSAGES.ORDER.USER_INACTIVE);
+    }
+
+    const shippingMethod = await this.shippingRepo.findActiveById(input.shippingMethodId);
+    if (!shippingMethod) {
+      throw new NotFoundError('Shipping method');
+    }
+
+    const variantIds = input.items.map((item) => item.variantId);
+    if (new Set(variantIds).size !== variantIds.length) {
+      throw new BadRequestError(ERROR_MESSAGES.ORDER.DUPLICATE_VARIANT);
+    }
+
+    const variants = await this.variantRepo.findByIds(variantIds, ['product', 'product.images']);
+    const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+
+    for (const item of input.items) {
+      const variant = variantMap.get(item.variantId);
+      if (!variant) {
+        throw new NotFoundError('Product variant');
+      }
+      if (variant.quantity < item.quantity) {
+        throw new BadRequestError(
+          ERROR_MESSAGES.ORDER.INSUFFICIENT_STOCK(variant.sku, variant.quantity),
+        );
+      }
+    }
+
+    let subTotal = 0;
+    const itemData = input.items.map((item) => {
+      const variant = variantMap.get(item.variantId)!;
+      const strategy = DiscountStrategyFactory.create(variant.discountType ?? DISCOUNT_TYPE.FIXED);
+      const unitPrice = Number(variant.price);
+      const discountValue = variant.discountValue !== null ? Number(variant.discountValue) : null;
+      const discountAmount = strategy.calculate(unitPrice, discountValue);
+      const finalPrice = Math.max(0, unitPrice - discountAmount);
+      const itemSubTotal = finalPrice * item.quantity;
+      const primaryImage = variant.product.images?.find((img) => img.isPrimary)?.url ?? null;
+
+      subTotal += itemSubTotal;
+
+      return {
+        variantId: item.variantId,
+        productId: variant.product.id,
+        quantity: item.quantity,
+        unitPrice,
+        discountAmount,
+        finalPrice,
+        subTotal: itemSubTotal,
+        productName: variant.product.name,
+        productImage: primaryImage,
+        variantName: variant.name,
+      };
+    });
+
+    const tax = subTotal * ORDER_CONSTANTS.TAX_RATE;
+    const shippingFee = Number(shippingMethod.price);
+    const totalAmount = subTotal + tax + shippingFee;
+    const savedOrderId = await this.createOrderWithTransaction({
+      input,
+      userId,
+      shippingMethodName: shippingMethod.name,
+      itemData,
+      subTotal,
+      tax,
+      shippingFee,
+      totalAmount,
+    });
+
+    const fullOrder = await this.repository.findByIdWithRelations(savedOrderId, ['items']);
+    if (!fullOrder) {
+      throw new NotFoundError('Order');
+    }
+
+    await PaymentStrategyFactory.create(input.paymentMethod).initiate(fullOrder);
+
+    log.info('Order placed', { orderId: fullOrder.id, orderNumber: fullOrder.orderNumber, userId });
+    return fullOrder;
+  }
+
+  async updateStatus(orderId: string, input: UpdateOrderStatusInput): Promise<Order> {
+    log.info('Updating order status', { orderId, newStatus: input.status });
+
+    const order = await this.requireOrderWithRelations(orderId, ['items']);
+    assertValidOrderStatusTransition(order.status, input.status);
+
+    if (input.status === ORDER_STATUS.CANCELLED) {
+      return this.cancelOrderWithStockRestore(order);
+    }
+
+    order.status = input.status;
+    const updated = await this.repository.save(order);
+
+    log.info('Order status updated', { orderId, newStatus: updated.status });
+    return updated;
+  }
+
+  private async cancelOrderWithStockRestore(order: Order): Promise<Order> {
+    await this.dataSource.transaction(async (manager) => {
+      for (const item of order.items) {
+        await manager.increment(ProductVariant, { id: item.variantId }, 'quantity', item.quantity);
+      }
+
+      await manager.getRepository(Order).save({ ...order, status: ORDER_STATUS.CANCELLED });
+    });
+
+    const updated = await this.requireOrderWithRelations(order.id, ['items']);
+    log.info('Order status updated', { orderId: order.id, newStatus: ORDER_STATUS.CANCELLED });
+    return updated;
+  }
+
+  async updateShippingStatus(orderId: string, input: UpdateShippingStatusInput): Promise<Order> {
+    log.info('Updating order shipping status', {
+      orderId,
+      newShippingStatus: input.shippingStatus,
+    });
+
+    const order = await this.requireOrderWithRelations(orderId, ['items']);
+    assertShippingTransition(order.shippingStatus, input.shippingStatus);
+
+    order.shippingStatus = input.shippingStatus;
+    const updated = await this.repository.save(order);
+
+    log.info('Order shipping status updated', {
+      orderId,
+      newShippingStatus: updated.shippingStatus,
+    });
+    return updated;
+  }
+
+  async remove(orderId: string): Promise<void> {
+    log.info('Deleting order', { orderId });
+
+    const order = await this.requireOrderWithRelations(orderId, ['items']);
+    const isDeletable =
+      order.status === ORDER_STATUS.PENDING || order.status === ORDER_STATUS.CANCELLED;
+    if (!isDeletable) {
+      throw new BadRequestError(ERROR_MESSAGES.ORDER.CANNOT_DELETE_ORDER);
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      if (order.status === ORDER_STATUS.PENDING) {
+        for (const item of order.items) {
+          await manager.increment(
+            ProductVariant,
+            { id: item.variantId },
+            'quantity',
+            item.quantity,
+          );
+        }
+      }
+
+      await manager.softDelete(Order, orderId);
+    });
+  }
+
+  findAll(options: {
+    query: ListOrdersQuery;
+    requesterId: string;
+    isAdmin: boolean;
+  }): Promise<PaginatedResponse<Order[]>> {
+    log.info('Listing orders', { requesterId: options.requesterId, isAdmin: options.isAdmin });
+    return this.repository.findAll(options.query, {
+      requesterId: options.requesterId,
+      isAdmin: options.isAdmin,
+    });
+  }
+
+  async findById(options: {
+    orderId: string;
+    requesterId: string;
+    isAdmin: boolean;
+  }): Promise<Order> {
+    log.info('Getting order by id', { orderId: options.orderId, requesterId: options.requesterId });
+
+    const order = await this.repository.findByIdWithRelations(options.orderId, ['items', 'user'], {
+      withDeleted: options.isAdmin,
+    });
+    if (!order) {
+      throw new NotFoundError('Order');
+    }
+    if (!options.isAdmin && order.userId !== options.requesterId) {
+      throw new ForbiddenError();
+    }
+
+    return order;
+  }
+
+  private async requireOrderWithRelations(orderId: string, relations: string[]): Promise<Order> {
+    const order = await this.repository.findByIdWithRelations(orderId, relations);
+    if (!order) {
+      throw new NotFoundError('Order');
+    }
+
+    return order;
+  }
+
+  private async createOrderWithTransaction(params: {
+    input: CreateOrderInput;
+    userId: string;
+    shippingMethodName: string;
+    itemData: Array<{
+      variantId: string;
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      discountAmount: number;
+      finalPrice: number;
+      subTotal: number;
+      productName: string;
+      productImage: string | null;
+      variantName: string;
+    }>;
+    subTotal: number;
+    tax: number;
+    shippingFee: number;
+    totalAmount: number;
+  }): Promise<string> {
+    return this.dataSource.transaction(async (manager) => {
+      const addressSnapshot = await this.resolveAddressSnapshot(
+        manager,
+        params.userId,
+        params.input,
       );
-    }
+      const order = manager.getRepository(Order).create({
+        userId: params.userId,
+        shippingMethodId: params.input.shippingMethodId,
+        orderNumber: generateOrderNumber(),
+        paymentMethod: params.input.paymentMethod,
+        subTotal: params.subTotal,
+        tax: params.tax,
+        shippingFee: params.shippingFee,
+        totalAmount: params.totalAmount,
+        shippingMethodName: params.shippingMethodName,
+        addressSnapshot,
+        note: params.input.note ?? null,
+        updatedBy: null,
+        items: params.itemData.map((item) => manager.getRepository(OrderItem).create(item)),
+      });
+
+      const saved = await manager.save(order);
+
+      for (const item of params.input.items) {
+        await manager.decrement(ProductVariant, { id: item.variantId }, 'quantity', item.quantity);
+      }
+
+      return saved.id;
+    });
   }
 
-  let subTotal = 0;
-  const itemData = input.items.map((item) => {
-    const variant = variantMap.get(item.variantId)!;
-    const strategy = DiscountStrategyFactory.create(variant.discountType ?? DISCOUNT_TYPE.FIXED);
-    const unitPrice = Number(variant.price);
-    const discountValue = variant.discountValue !== null ? Number(variant.discountValue) : null;
-    const discountAmount = strategy.calculate(unitPrice, discountValue);
-    const finalPrice = Math.max(0, unitPrice - discountAmount);
-    const itemSubTotal = finalPrice * item.quantity;
-    const primaryImage = variant.product.images?.find((img) => img.isPrimary)?.url ?? null;
-
-    subTotal += itemSubTotal;
-
-    return {
-      variantId: item.variantId,
-      productId: variant.product.id,
-      quantity: item.quantity,
-      unitPrice,
-      discountAmount,
-      finalPrice,
-      subTotal: itemSubTotal,
-      productName: variant.product.name,
-      productImage: primaryImage,
-      variantName: variant.name,
-    };
-  });
-
-  const tax = subTotal * ORDER_CONSTANTS.TAX_RATE;
-  const shippingFee = Number(shippingMethod.price);
-  const totalAmount = subTotal + tax + shippingFee;
-
-  const qr = AppDataSource.createQueryRunner();
-  await qr.connect();
-  await qr.startTransaction();
-
-  let savedOrderId: string;
-
-  try {
-    let addressSnapshot: ReturnType<typeof toAddressSnapshot>;
-
-    const addressRepo = qr.manager.getRepository(UserAddress);
+  private async resolveAddressSnapshot(
+    manager: EntityManager,
+    userId: string,
+    input: CreateOrderInput,
+  ): Promise<ReturnType<typeof toAddressSnapshot>> {
+    const addressRepo = manager.getRepository(UserAddress);
     const addressCount = await addressRepo.count({ where: { userId } });
 
     if (addressCount === 0) {
@@ -145,227 +347,10 @@ export const createOrder = async (input: CreateOrderInput, userId: string): Prom
           isDefault: true,
         }),
       );
-      addressSnapshot = toAddressSnapshot(saved);
-    } else {
-      addressSnapshot = toAddressSnapshot(input.shippingAddress);
+
+      return toAddressSnapshot(saved);
     }
 
-    const order = qr.manager.getRepository(Order).create({
-      userId,
-      shippingMethodId: input.shippingMethodId,
-      orderNumber: generateOrderNumber(),
-      paymentMethod: input.paymentMethod,
-      subTotal,
-      tax,
-      shippingFee,
-      totalAmount,
-      shippingMethodName: shippingMethod.name,
-      addressSnapshot,
-      note: input.note ?? null,
-      updatedBy: null,
-      items: itemData.map((d) => qr.manager.getRepository(OrderItem).create(d)),
-    });
-
-    const saved = await qr.manager.save(order);
-    savedOrderId = saved.id;
-
-    for (const item of input.items) {
-      await qr.manager
-        .getRepository(ProductVariant)
-        .decrement({ id: item.variantId }, 'quantity', item.quantity);
-    }
-
-    await qr.commitTransaction();
-  } catch (err) {
-    await qr.rollbackTransaction();
-    throw err;
-  } finally {
-    await qr.release();
+    return toAddressSnapshot(input.shippingAddress);
   }
-
-  const fullOrder = await orderRepo().findOne({
-    where: { id: savedOrderId },
-    relations: ['items'],
-  });
-  if (!fullOrder) throw new NotFoundError('Order');
-
-  await PaymentStrategyFactory.create(input.paymentMethod).initiate(fullOrder);
-
-  log.info('Order placed', { orderId: fullOrder.id, orderNumber: fullOrder.orderNumber, userId });
-
-  return fullOrder;
-};
-
-interface UpdateOrderStatusOptions {
-  orderId: string;
-  input: UpdateOrderStatusInput;
 }
-
-export const updateOrderStatus = async ({
-  orderId,
-  input,
-}: UpdateOrderStatusOptions): Promise<Order> => {
-  log.info('Updating order status', { orderId, newStatus: input.status });
-
-  const order = await orderRepo().findOne({
-    where: { id: orderId },
-    relations: ['items'],
-  });
-  if (!order) throw new NotFoundError('Order');
-
-  assertValidOrderStatusTransition(order.status, input.status);
-
-  order.status = input.status;
-  const updated = await orderRepo().save(order);
-
-  log.info('Order status updated', { orderId, newStatus: updated.status });
-
-  return updated;
-};
-
-interface UpdateOrderShippingStatusOptions {
-  orderId: string;
-  input: UpdateShippingStatusInput;
-}
-
-export const updateOrderShippingStatus = async ({
-  orderId,
-  input,
-}: UpdateOrderShippingStatusOptions): Promise<Order> => {
-  log.info('Updating order shipping status', { orderId, newShippingStatus: input.shippingStatus });
-
-  const order = await orderRepo().findOne({
-    where: { id: orderId },
-    relations: ['items'],
-  });
-  if (!order) throw new NotFoundError('Order');
-
-  assertShippingTransition(order.shippingStatus, input.shippingStatus);
-
-  order.shippingStatus = input.shippingStatus;
-  const updated = await orderRepo().save(order);
-
-  log.info('Order shipping status updated', { orderId, newShippingStatus: updated.shippingStatus });
-
-  return updated;
-};
-
-interface DeleteOrderOptions {
-  orderId: string;
-}
-
-export const deleteOrder = async ({ orderId }: DeleteOrderOptions): Promise<void> => {
-  log.info('Deleting order', { orderId });
-
-  const order = await orderRepo().findOne({
-    where: { id: orderId },
-    relations: ['items'],
-  });
-
-  if (!order) {
-    throw new NotFoundError('Order');
-  }
-
-  const isDeletable =
-    order.status === ORDER_STATUS.PENDING || order.status === ORDER_STATUS.CANCELLED;
-  if (!isDeletable) {
-    throw new BadRequestError(ERROR_MESSAGES.ORDER.CANNOT_DELETE_ORDER);
-  }
-
-  await AppDataSource.transaction(async (manager) => {
-    for (const item of order.items) {
-      await manager.increment(ProductVariant, { id: item.variantId }, 'quantity', item.quantity);
-    }
-
-    await manager.softDelete(Order, orderId);
-  });
-};
-
-interface ListOrdersOptions {
-  query: ListOrdersQuery;
-  requesterId: string;
-  isAdmin: boolean;
-}
-
-export const listOrders = async ({
-  query,
-  requesterId,
-  isAdmin,
-}: ListOrdersOptions): Promise<PaginatedResponse<Order[]>> => {
-  log.info('Listing orders', { requesterId, isAdmin });
-
-  const { page, limit, status, shippingStatus, search } = query;
-  const qb = orderRepo()
-    .createQueryBuilder('order')
-    .leftJoinAndSelect('order.items', 'items')
-    .leftJoinAndSelect('order.user', 'user')
-    .orderBy('order.createdAt', 'DESC')
-    .skip((page - 1) * limit)
-    .take(limit);
-
-  if (!isAdmin) {
-    qb.andWhere('order.userId = :userId', { userId: requesterId });
-  }
-
-  if (status) {
-    qb.andWhere('order.status = :status', { status });
-  }
-
-  if (shippingStatus) {
-    qb.andWhere('order.shippingStatus = :shippingStatus', { shippingStatus });
-  }
-
-  if (search) {
-    qb.andWhere(
-      `(
-        order.orderNumber ILIKE :search
-        OR user.firstName ILIKE :search
-        OR user.lastName ILIKE :search
-        OR user.email ILIKE :search
-        OR user.phoneNumber ILIKE :search
-      )`,
-      { search: `%${search}%` },
-    );
-  }
-
-  const [data, totalCount] = await qb.getManyAndCount();
-
-  return {
-    data,
-    meta: {
-      limit,
-      currentPage: page,
-      pageCount: Math.ceil(totalCount / limit),
-      totalCount,
-    },
-  };
-};
-
-interface GetOrderByIdOptions {
-  orderId: string;
-  requesterId: string;
-  isAdmin: boolean;
-}
-
-export const getOrderById = async ({
-  orderId,
-  requesterId,
-  isAdmin,
-}: GetOrderByIdOptions): Promise<Order> => {
-  log.info('Getting order by id', { orderId, requesterId });
-
-  const order = await orderRepo().findOne({
-    where: { id: orderId },
-    relations: ['items', 'user'],
-  });
-
-  if (!order) {
-    throw new NotFoundError('Order');
-  }
-
-  if (!isAdmin && order.userId !== requesterId) {
-    throw new ForbiddenError();
-  }
-
-  return order;
-};
