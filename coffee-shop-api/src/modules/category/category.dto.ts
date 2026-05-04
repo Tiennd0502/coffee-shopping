@@ -8,21 +8,9 @@ const nameSchema = z
   .max(VALIDATION_RULES.CATEGORY_NAME.MAX_LENGTH)
   .trim();
 
-const slugInputSchema = z.preprocess(
-  (value) =>
-    value == null || (typeof value === 'string' && value.trim() === '') ? undefined : value,
-  z
-    .string()
-    .min(VALIDATION_RULES.SLUG.MIN_LENGTH)
-    .max(VALIDATION_RULES.SLUG.MAX_LENGTH)
-    .trim()
-    .optional(),
-);
-
 export const CategorySchema = z
   .object({
     name: nameSchema,
-    slug: slugInputSchema,
   })
   .openapi('CreateCategoryInput');
 

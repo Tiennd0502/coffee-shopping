@@ -5,7 +5,6 @@ export const ERROR_MESSAGES = {
   NOT_FOUND: (name: string) => `${name} not found`,
   FIELD_INVALID: (field: string) => `${field} is invalid`,
   CATEGORY_NAME_EXISTS: 'A category with that name already exists',
-  CATEGORY_SLUG_EXISTS: 'A category with that slug already exists',
   EMAIL_EXISTS: 'An account with that email already exists',
   USER_CLERK_ID_TAKEN: 'That Clerk user id is already linked to another account',
   INVALID_REQUEST: 'Request validation failed',
