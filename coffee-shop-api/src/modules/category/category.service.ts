@@ -1,114 +1,70 @@
-import type { Repository } from 'typeorm';
-
-import AppDataSource from '@/config/database';
-import { BadRequestError, NotFoundError } from '@/shared/errors/app';
+import { BadRequestError, ConflictError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
+import { BaseService } from '@/shared/services/base.service';
 import type { PaginatedResponse } from '@/shared/types/response';
-import { assertNoDuplicate } from '@/shared/utils/validation';
 import { slugFrom } from '@/shared/utils/slug';
 
 import type { CreateCategoryInput, ListCategoriesQuery, UpdateCategoryInput } from './category.dto';
 import { Category } from './category.entity';
+import type { CategoryRepository } from './category.repository';
 
-const categoryRepo = (): Repository<Category> => AppDataSource.getRepository(Category);
-
-const assertCategory = async (id: string): Promise<Category> => {
-  const category = await categoryRepo().findOne({ where: { id } });
-  if (!category) {
-    throw new NotFoundError(ERROR_MESSAGES.NOT_FOUND('Category'));
+export class CategoryService extends BaseService<Category, CategoryRepository> {
+  constructor(categoryRepo: CategoryRepository) {
+    super(categoryRepo);
   }
-  return category;
-};
 
-export const findAllCategories = async (
-  query: ListCategoriesQuery,
-): Promise<PaginatedResponse<Category[]>> => {
-  const { page, limit, search } = query;
-  const qb = categoryRepo()
-    .createQueryBuilder('category')
-    .orderBy('category.createdAt', 'DESC')
-    .skip((page - 1) * limit)
-    .take(limit);
+  findAll(query: ListCategoriesQuery): Promise<PaginatedResponse<Category[]>> {
+    return this.repository.findAll(query);
+  }
 
-  if (search) {
-    qb.andWhere('category.name ILIKE :search OR category.slug ILIKE :search', {
-      search: `%${search}%`,
+  findById(id: string): Promise<Category> {
+    return this.assertById(id, 'Category');
+  }
+
+  async create(input: CreateCategoryInput, createdBy: string): Promise<Category> {
+    const slug = slugFrom(input.name);
+    if (!slug) {
+      throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST);
+    }
+
+    const existingByName = await this.repository.findByName(input.name);
+    if (existingByName) {
+      throw new ConflictError(ERROR_MESSAGES.CATEGORY_NAME_EXISTS);
+    }
+
+    const entity = this.repository.create({
+      name: input.name,
+      slug,
+      createdBy,
+      updatedBy: null,
+      deletedBy: null,
     });
+
+    return this.repository.save(entity);
   }
 
-  const [data, totalCount] = await qb.getManyAndCount();
-  return {
-    data,
-    meta: {
-      limit,
-      currentPage: page,
-      pageCount: Math.ceil(totalCount / limit),
-      totalCount,
-    },
-  };
-};
+  async update(id: string, input: UpdateCategoryInput, updatedBy: string): Promise<Category> {
+    const category = await this.assertById(id, 'Category');
 
-export const findCategoryById = async (id: string): Promise<Category> => assertCategory(id);
+    if (input.name !== undefined && input.name !== category.name) {
+      const existingByName = await this.repository.findByName(input.name);
+      if (existingByName) {
+        throw new ConflictError(ERROR_MESSAGES.CATEGORY_NAME_EXISTS);
+      }
 
-export const createCategory = async (
-  input: CreateCategoryInput,
-  createdBy: string,
-): Promise<Category> => {
-  const slug = slugFrom(input.name);
+      category.name = input.name;
+      category.slug = slugFrom(input.name);
+    }
 
-  if (!slug) {
-    throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST);
+    category.updatedBy = updatedBy;
+    return this.repository.save(category);
   }
 
-  await Promise.all([
-    assertNoDuplicate(categoryRepo(), { name: input.name }, ERROR_MESSAGES.CATEGORY_NAME_EXISTS),
-    assertNoDuplicate(categoryRepo(), { slug }, ERROR_MESSAGES.CATEGORY_SLUG_EXISTS),
-  ]);
-
-  const entity = categoryRepo().create({
-    name: input.name,
-    slug,
-    createdBy,
-    updatedBy: null,
-    deletedBy: null,
-  });
-  return categoryRepo().save(entity);
-};
-
-export const updateCategory = async (
-  id: string,
-  input: UpdateCategoryInput,
-  updatedBy: string,
-): Promise<Category> => {
-  const category = await assertCategory(id);
-
-  if (input.name !== undefined && input.name !== category.name) {
-    await assertNoDuplicate(
-      categoryRepo(),
-      { name: input.name },
-      ERROR_MESSAGES.CATEGORY_NAME_EXISTS,
-    );
-    const newSlug = input.slug ?? slugFrom(input.name);
-    await assertNoDuplicate(categoryRepo(), { slug: newSlug }, ERROR_MESSAGES.CATEGORY_SLUG_EXISTS);
-    category.name = input.name;
-    category.slug = newSlug;
-  } else if (input.slug !== undefined && input.slug !== category.slug) {
-    await assertNoDuplicate(
-      categoryRepo(),
-      { slug: input.slug },
-      ERROR_MESSAGES.CATEGORY_SLUG_EXISTS,
-    );
-    category.slug = input.slug;
+  async remove(id: string, deletedBy: string): Promise<void> {
+    const category = await this.assertById(id, 'Category');
+    category.updatedBy = deletedBy;
+    category.deletedBy = deletedBy;
+    await this.repository.save(category);
+    await this.repository.softDelete(id);
   }
-
-  category.updatedBy = updatedBy;
-  return categoryRepo().save(category);
-};
-
-export const removeCategory = async (id: string, deletedBy: string): Promise<void> => {
-  const category = await assertCategory(id);
-  category.updatedBy = deletedBy;
-  category.deletedBy = deletedBy;
-  await categoryRepo().save(category);
-  await categoryRepo().softDelete({ id });
-};
+}

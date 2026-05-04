@@ -3,8 +3,8 @@ import type { ErrorRequestHandler } from 'express';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
+import { categoryController } from '@/container';
 import { requireAdmin, requireAuthenticated } from '@/middlewares/auth';
-import * as categoryController from '@/modules/category/category.v1.controller';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
@@ -23,12 +23,12 @@ router.use(clerkMiddleware());
 router.use(clerkErrorHandler);
 router.use(requireAuthenticated);
 
-router.get('/', categoryController.listCategories);
-router.get('/:id', categoryController.getCategory);
+router.get('/', categoryController.list);
+router.get('/:id', categoryController.get);
 
 router.use(requireAdmin);
-router.post('/', categoryController.createCategory);
-router.patch('/:id', categoryController.updateCategory);
-router.delete('/:id', categoryController.deleteCategory);
+router.post('/', categoryController.create);
+router.patch('/:id', categoryController.update);
+router.delete('/:id', categoryController.remove);
 
 export default router;
