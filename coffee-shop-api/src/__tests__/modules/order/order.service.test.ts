@@ -1,18 +1,13 @@
-import AppDataSource from '@/config/database';
+import type { DataSource } from 'typeorm';
+
 import type { ListOrdersQuery } from '@/modules/order/order.dto';
 import { Order } from '@/modules/order/order.entity';
-import { ProductVariant } from '@/modules/product/product-variant.entity';
 import {
   assertShippingTransition,
   assertValidOrderStatusTransition,
 } from '@/modules/order/order-state';
-import {
-  deleteOrder,
-  getOrderById,
-  listOrders,
-  updateOrderShippingStatus,
-  updateOrderStatus,
-} from '@/modules/order/order.service';
+import { OrderService } from '@/modules/order/order.service';
+import { ProductVariant } from '@/modules/product/product-variant.entity';
 import {
   ORDER_STATUS,
   PAYMENT_METHOD,
@@ -26,24 +21,34 @@ jest.mock('@/config/logger', () => ({
 }));
 
 const mockOrderRepo = {
-  findOne: jest.fn(),
+  findByIdWithRelations: jest.fn(),
   save: jest.fn(),
-  createQueryBuilder: jest.fn(),
+  findAll: jest.fn(),
+};
+
+const mockUserRepo = {
+  findById: jest.fn(),
+};
+
+const mockShippingRepo = {
+  findActiveById: jest.fn(),
+};
+
+const mockVariantRepo = {
+  findByIds: jest.fn(),
 };
 
 const mockEntityManager = {
   increment: jest.fn(),
   softDelete: jest.fn(),
+  decrement: jest.fn(),
+  getRepository: jest.fn(),
+  save: jest.fn(),
 };
 
-const mockQueryBuilder = {
-  leftJoinAndSelect: jest.fn().mockReturnThis(),
-  orderBy: jest.fn().mockReturnThis(),
-  skip: jest.fn().mockReturnThis(),
-  take: jest.fn().mockReturnThis(),
-  andWhere: jest.fn().mockReturnThis(),
-  getManyAndCount: jest.fn(),
-};
+const mockDataSource = {
+  transaction: jest.fn(),
+} as unknown as DataSource;
 
 const makeOrder = (status: ORDER_STATUS, shippingStatus = SHIPPING_STATUS.PENDING): Order =>
   ({
@@ -71,6 +76,15 @@ const makeOrder = (status: ORDER_STATUS, shippingStatus = SHIPPING_STATUS.PENDIN
     updatedBy: null,
     items: [],
   }) as unknown as Order;
+
+const buildService = (): OrderService =>
+  new OrderService({
+    orderRepo: mockOrderRepo as never,
+    userRepo: mockUserRepo as never,
+    shippingRepo: mockShippingRepo as never,
+    variantRepo: mockVariantRepo as never,
+    dataSource: mockDataSource,
+  });
 
 describe('assertValidOrderStatusTransition', () => {
   it.each([
@@ -112,32 +126,25 @@ describe('assertShippingTransition', () => {
   });
 });
 
-describe('OrderService.updateOrderStatus', () => {
+describe('OrderService.updateStatus', () => {
+  let service: OrderService;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) =>
-        entity === Order ? (mockOrderRepo as never) : ({} as never),
-      );
-    jest
-      .spyOn(AppDataSource, 'transaction')
-      .mockImplementation((async (cb: (manager: typeof mockEntityManager) => Promise<void>) =>
-        cb(mockEntityManager)) as never);
+    service = buildService();
+    (mockDataSource.transaction as jest.Mock).mockImplementation(
+      async (cb: (manager: typeof mockEntityManager) => Promise<void>) => cb(mockEntityManager),
+    );
   });
 
   it('transitions PENDING -> CONFIRMED and returns saved order', async () => {
     const order = makeOrder(ORDER_STATUS.PENDING);
     const saved = { ...order, status: ORDER_STATUS.CONFIRMED };
 
-    mockOrderRepo.findOne.mockResolvedValue(order);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(order);
     mockOrderRepo.save.mockResolvedValue(saved);
 
-    const result = await updateOrderStatus({
-      orderId: order.id,
-      input: { status: ORDER_STATUS.CONFIRMED },
-    });
+    const result = await service.updateStatus(order.id, { status: ORDER_STATUS.CONFIRMED });
 
     expect(mockOrderRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ status: ORDER_STATUS.CONFIRMED }),
@@ -145,133 +152,175 @@ describe('OrderService.updateOrderStatus', () => {
     expect(result.status).toBe(ORDER_STATUS.CONFIRMED);
   });
 
+  it('transitions PENDING -> CANCELLED, restores stock, and returns saved order', async () => {
+    const order = {
+      ...makeOrder(ORDER_STATUS.PENDING),
+      items: [
+        { variantId: 'v1', quantity: 2 },
+        { variantId: 'v2', quantity: 1 },
+      ],
+    };
+    const cancelled = { ...order, status: ORDER_STATUS.CANCELLED };
+
+    mockOrderRepo.findByIdWithRelations
+      .mockResolvedValueOnce(order)
+      .mockResolvedValueOnce(cancelled);
+    mockEntityManager.increment.mockResolvedValue(undefined);
+    mockEntityManager.getRepository = jest.fn().mockReturnValue({ save: jest.fn() });
+
+    const result = await service.updateStatus(order.id, { status: ORDER_STATUS.CANCELLED });
+
+    expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(mockEntityManager.increment).toHaveBeenCalledTimes(2);
+    expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
+      1,
+      ProductVariant,
+      { id: 'v1' },
+      'quantity',
+      2,
+    );
+    expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
+      2,
+      ProductVariant,
+      { id: 'v2' },
+      'quantity',
+      1,
+    );
+    expect(result.status).toBe(ORDER_STATUS.CANCELLED);
+  });
+
   it('throws NotFoundError when order does not exist', async () => {
-    mockOrderRepo.findOne.mockResolvedValue(null);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(null);
 
     await expect(
-      updateOrderStatus({
-        orderId: '11111111-2222-4333-8444-555555555555',
-        input: { status: ORDER_STATUS.CONFIRMED },
+      service.updateStatus('11111111-2222-4333-8444-555555555555', {
+        status: ORDER_STATUS.CONFIRMED,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws BadRequestError on invalid transition (PENDING -> COMPLETED)', async () => {
-    mockOrderRepo.findOne.mockResolvedValue(makeOrder(ORDER_STATUS.PENDING));
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(makeOrder(ORDER_STATUS.PENDING));
 
     await expect(
-      updateOrderStatus({
-        orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-        input: { status: ORDER_STATUS.COMPLETED },
+      service.updateStatus('f47ac10b-58cc-4372-a567-0e02b2c3d479', {
+        status: ORDER_STATUS.COMPLETED,
       }),
     ).rejects.toBeInstanceOf(BadRequestError);
   });
 });
 
-describe('OrderService.deleteOrder', () => {
+describe('OrderService.remove', () => {
+  let service: OrderService;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) =>
-        entity === Order ? (mockOrderRepo as never) : ({} as never),
-      );
-    jest
-      .spyOn(AppDataSource, 'transaction')
-      .mockImplementation((async (cb: (manager: typeof mockEntityManager) => Promise<void>) =>
-        cb(mockEntityManager)) as never);
+    service = buildService();
+    (mockDataSource.transaction as jest.Mock).mockImplementation(
+      async (cb: (manager: typeof mockEntityManager) => Promise<void>) => cb(mockEntityManager),
+    );
   });
 
-  it.each([ORDER_STATUS.PENDING, ORDER_STATUS.CANCELLED])(
-    'soft deletes a %s order and restores variant quantities',
-    async (status) => {
-      const order = {
-        ...makeOrder(status),
-        items: [
-          { variantId: 'v1', quantity: 2 },
-          { variantId: 'v2', quantity: 1 },
-        ],
-      };
-      mockOrderRepo.findOne.mockResolvedValue(order);
-      mockEntityManager.increment.mockResolvedValue(undefined);
-      mockEntityManager.softDelete.mockResolvedValue(undefined);
+  it('soft deletes a PENDING order and restores variant quantities', async () => {
+    const order = {
+      ...makeOrder(ORDER_STATUS.PENDING),
+      items: [
+        { variantId: 'v1', quantity: 2 },
+        { variantId: 'v2', quantity: 1 },
+      ],
+    };
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(order);
+    mockEntityManager.increment.mockResolvedValue(undefined);
+    mockEntityManager.softDelete.mockResolvedValue(undefined);
 
-      await deleteOrder({ orderId: order.id });
+    await service.remove(order.id);
 
-      expect(AppDataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(mockEntityManager.increment).toHaveBeenCalledTimes(2);
-      expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
-        1,
-        ProductVariant,
-        { id: 'v1' },
-        'quantity',
-        2,
-      );
-      expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
-        2,
-        ProductVariant,
-        { id: 'v2' },
-        'quantity',
-        1,
-      );
-      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(Order, order.id);
-    },
-  );
+    expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(mockEntityManager.increment).toHaveBeenCalledTimes(2);
+    expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
+      1,
+      ProductVariant,
+      { id: 'v1' },
+      'quantity',
+      2,
+    );
+    expect(mockEntityManager.increment).toHaveBeenNthCalledWith(
+      2,
+      ProductVariant,
+      { id: 'v2' },
+      'quantity',
+      1,
+    );
+    expect(mockEntityManager.softDelete).toHaveBeenCalledWith(Order, order.id);
+  });
+
+  it('soft deletes a CANCELLED order without restoring variant quantities (already restored at cancel)', async () => {
+    const order = {
+      ...makeOrder(ORDER_STATUS.CANCELLED),
+      items: [
+        { variantId: 'v1', quantity: 2 },
+        { variantId: 'v2', quantity: 1 },
+      ],
+    };
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(order);
+    mockEntityManager.softDelete.mockResolvedValue(undefined);
+
+    await service.remove(order.id);
+
+    expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(mockEntityManager.increment).not.toHaveBeenCalled();
+    expect(mockEntityManager.softDelete).toHaveBeenCalledWith(Order, order.id);
+  });
 
   it('throws NotFoundError when order does not exist', async () => {
-    mockOrderRepo.findOne.mockResolvedValue(null);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(null);
 
-    await expect(deleteOrder({ orderId: 'non-existent' })).rejects.toBeInstanceOf(NotFoundError);
-    expect(AppDataSource.transaction).not.toHaveBeenCalled();
+    await expect(service.remove('non-existent')).rejects.toBeInstanceOf(NotFoundError);
+    expect(mockDataSource.transaction).not.toHaveBeenCalled();
   });
 
   it.each([ORDER_STATUS.CONFIRMED, ORDER_STATUS.COMPLETED])(
     'throws BadRequestError when order status is %s',
     async (status) => {
-      mockOrderRepo.findOne.mockResolvedValue({ ...makeOrder(status), items: [] });
+      mockOrderRepo.findByIdWithRelations.mockResolvedValue({ ...makeOrder(status), items: [] });
 
-      await expect(
-        deleteOrder({ orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' }),
-      ).rejects.toBeInstanceOf(BadRequestError);
-      expect(AppDataSource.transaction).not.toHaveBeenCalled();
+      await expect(service.remove('f47ac10b-58cc-4372-a567-0e02b2c3d479')).rejects.toBeInstanceOf(
+        BadRequestError,
+      );
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     },
   );
 
   it('propagates error thrown inside transaction', async () => {
-    mockOrderRepo.findOne.mockResolvedValue({
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue({
       ...makeOrder(ORDER_STATUS.PENDING),
       items: [],
     });
     mockEntityManager.softDelete.mockRejectedValue(new Error('DB error'));
 
-    await expect(deleteOrder({ orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' })).rejects.toThrow(
+    await expect(service.remove('f47ac10b-58cc-4372-a567-0e02b2c3d479')).rejects.toThrow(
       'DB error',
     );
   });
 });
 
-describe('OrderService.updateOrderShippingStatus', () => {
+describe('OrderService.updateShippingStatus', () => {
+  let service: OrderService;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) =>
-        entity === Order ? (mockOrderRepo as never) : ({} as never),
-      );
+    service = buildService();
   });
 
   it('transitions PENDING -> SHIPPING and returns saved order', async () => {
     const order = makeOrder(ORDER_STATUS.CONFIRMED, SHIPPING_STATUS.PENDING);
     const saved = { ...order, shippingStatus: SHIPPING_STATUS.SHIPPING };
 
-    mockOrderRepo.findOne.mockResolvedValue(order);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(order);
     mockOrderRepo.save.mockResolvedValue(saved);
 
-    const result = await updateOrderShippingStatus({
-      orderId: order.id,
-      input: { shippingStatus: SHIPPING_STATUS.SHIPPING },
+    const result = await service.updateShippingStatus(order.id, {
+      shippingStatus: SHIPPING_STATUS.SHIPPING,
     });
 
     expect(mockOrderRepo.save).toHaveBeenCalledWith(
@@ -281,155 +330,138 @@ describe('OrderService.updateOrderShippingStatus', () => {
   });
 
   it('throws NotFoundError when order does not exist', async () => {
-    mockOrderRepo.findOne.mockResolvedValue(null);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(null);
 
     await expect(
-      updateOrderShippingStatus({
-        orderId: '11111111-2222-4333-8444-555555555555',
-        input: { shippingStatus: SHIPPING_STATUS.SHIPPING },
+      service.updateShippingStatus('11111111-2222-4333-8444-555555555555', {
+        shippingStatus: SHIPPING_STATUS.SHIPPING,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws BadRequestError on invalid transition (PENDING -> DELIVERED)', async () => {
-    mockOrderRepo.findOne.mockResolvedValue(
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(
       makeOrder(ORDER_STATUS.CONFIRMED, SHIPPING_STATUS.PENDING),
     );
 
     await expect(
-      updateOrderShippingStatus({
-        orderId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-        input: { shippingStatus: SHIPPING_STATUS.DELIVERED },
+      service.updateShippingStatus('f47ac10b-58cc-4372-a567-0e02b2c3d479', {
+        shippingStatus: SHIPPING_STATUS.DELIVERED,
       }),
     ).rejects.toBeInstanceOf(BadRequestError);
   });
 });
 
-describe('OrderService.listOrders', () => {
+describe('OrderService.findAll', () => {
   const baseQuery: ListOrdersQuery = { page: 1, limit: 10, status: undefined };
+  let service: OrderService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) =>
-        entity === Order ? (mockOrderRepo as never) : ({} as never),
-      );
+    service = buildService();
   });
 
-  it('returns all orders with meta when requester is admin', async () => {
+  it('returns orders with meta for requester context', async () => {
     const mockOrders = [makeOrder(ORDER_STATUS.PENDING), makeOrder(ORDER_STATUS.CONFIRMED)];
-    mockQueryBuilder.getManyAndCount.mockResolvedValue([mockOrders, 2]);
+    mockOrderRepo.findAll.mockResolvedValue({
+      data: mockOrders,
+      meta: { limit: 10, currentPage: 1, pageCount: 1, totalCount: 2 },
+    });
 
-    const result = await listOrders({
+    const result = await service.findAll({
       query: baseQuery,
       requesterId: 'admin-id',
       isAdmin: true,
     });
 
-    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
-      expect.stringContaining('userId'),
-      expect.anything(),
-    );
+    expect(mockOrderRepo.findAll).toHaveBeenCalledWith(baseQuery, {
+      requesterId: 'admin-id',
+      isAdmin: true,
+    });
     expect(result.data).toHaveLength(2);
     expect(result.meta).toEqual({ limit: 10, currentPage: 1, pageCount: 1, totalCount: 2 });
   });
-
-  it('filters by userId when requester is not admin', async () => {
-    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
-
-    await listOrders({
-      query: baseQuery,
-      requesterId: 'user-id',
-      isAdmin: false,
-    });
-
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('order.userId = :userId', {
-      userId: 'user-id',
-    });
-  });
-
-  it('filters by status when status is provided', async () => {
-    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
-
-    await listOrders({
-      query: { ...baseQuery, status: ORDER_STATUS.PENDING },
-      requesterId: 'user-id',
-      isAdmin: false,
-    });
-
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('order.status = :status', {
-      status: ORDER_STATUS.PENDING,
-    });
-  });
-
-  it('calculates pageCount correctly', async () => {
-    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 25]);
-
-    const result = await listOrders({
-      query: { page: 2, limit: 10, status: undefined },
-      requesterId: 'user-id',
-      isAdmin: false,
-    });
-
-    expect(result.meta).toEqual({ limit: 10, currentPage: 2, pageCount: 3, totalCount: 25 });
-    expect(mockQueryBuilder.skip).toHaveBeenCalledWith(10);
-    expect(mockQueryBuilder.take).toHaveBeenCalledWith(10);
-  });
 });
 
-describe('OrderService.getOrderById', () => {
+describe('OrderService.findById', () => {
+  let service: OrderService;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOrderRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) =>
-        entity === Order ? (mockOrderRepo as never) : ({} as never),
-      );
+    service = buildService();
   });
 
   it('returns order when requester is the owner', async () => {
     const mockOrder = makeOrder(ORDER_STATUS.PENDING);
-    mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(mockOrder);
 
-    const result = await getOrderById({
+    const result = await service.findById({
       orderId: mockOrder.id,
       requesterId: mockOrder.userId,
       isAdmin: false,
     });
 
+    expect(mockOrderRepo.findByIdWithRelations).toHaveBeenCalledWith(
+      mockOrder.id,
+      ['items', 'user'],
+      { withDeleted: false },
+    );
     expect(result).toEqual(mockOrder);
   });
 
   it('returns order when requester is admin', async () => {
     const mockOrder = makeOrder(ORDER_STATUS.PENDING);
-    mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(mockOrder);
 
-    const result = await getOrderById({
+    const result = await service.findById({
       orderId: mockOrder.id,
       requesterId: 'admin-id',
       isAdmin: true,
     });
 
+    expect(mockOrderRepo.findByIdWithRelations).toHaveBeenCalledWith(
+      mockOrder.id,
+      ['items', 'user'],
+      { withDeleted: true },
+    );
     expect(result).toEqual(mockOrder);
   });
 
-  it('throws NotFoundError when order does not exist', async () => {
-    mockOrderRepo.findOne.mockResolvedValue(null);
+  it('admin can view a soft-deleted order', async () => {
+    const deletedOrder = { ...makeOrder(ORDER_STATUS.CANCELLED), deletedAt: new Date() };
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(deletedOrder);
+
+    const result = await service.findById({
+      orderId: deletedOrder.id,
+      requesterId: 'admin-id',
+      isAdmin: true,
+    });
+
+    expect(result).toEqual(deletedOrder);
+  });
+
+  it('non-admin cannot view a soft-deleted order', async () => {
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(null);
 
     await expect(
-      getOrderById({ orderId: 'non-existent', requesterId: 'user-id', isAdmin: false }),
+      service.findById({ orderId: 'deleted-id', requesterId: 'user-id', isAdmin: false }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws NotFoundError when order does not exist', async () => {
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(null);
+
+    await expect(
+      service.findById({ orderId: 'non-existent', requesterId: 'user-id', isAdmin: false }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws ForbiddenError when non-admin requester is not the owner', async () => {
     const mockOrder = makeOrder(ORDER_STATUS.PENDING);
-    mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(mockOrder);
 
     await expect(
-      getOrderById({ orderId: mockOrder.id, requesterId: 'other-user-id', isAdmin: false }),
+      service.findById({ orderId: mockOrder.id, requesterId: 'other-user-id', isAdmin: false }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

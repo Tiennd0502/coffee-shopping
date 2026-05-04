@@ -3,6 +3,14 @@ import { CategoryController } from '@/modules/category/category.v1.controller';
 import { Category } from '@/modules/category/category.entity';
 import { CategoryRepository } from '@/modules/category/category.repository';
 import { CategoryService } from '@/modules/category/category.service';
+import {
+  Order,
+  OrderController,
+  OrderRepository,
+  OrderService,
+  ShippingMethod,
+  ShippingMethodRepository,
+} from '@/modules/order';
 import { ProductController } from '@/modules/product/product.v1.controller';
 import { Product } from '@/modules/product/product.entity';
 import { ProductImage } from '@/modules/product/product-image.entity';
@@ -29,6 +37,10 @@ const productImageRepository = new ProductImageRepository(
 const productVariantRepository = new ProductVariantRepository(
   AppDataSource.getRepository(ProductVariant),
 );
+const orderRepository = new OrderRepository(AppDataSource.getRepository(Order));
+const shippingMethodRepository = new ShippingMethodRepository(
+  AppDataSource.getRepository(ShippingMethod),
+);
 
 export const userService = new UserService(userRepository, userAddressRepository);
 export const categoryService = new CategoryService(categoryRepository);
@@ -39,7 +51,15 @@ export const productService = new ProductService({
   categoryRepo: categoryRepository,
   dataSource: AppDataSource,
 });
+export const orderService = new OrderService({
+  orderRepo: orderRepository,
+  userRepo: userRepository,
+  shippingRepo: shippingMethodRepository,
+  variantRepo: productVariantRepository,
+  dataSource: AppDataSource,
+});
 export const userController = new UserController(userService);
 export const categoryController = new CategoryController(categoryService);
 export const productController = new ProductController(productService);
+export const orderController = new OrderController(orderService);
 export const clerkController = new ClerkController(userService);
