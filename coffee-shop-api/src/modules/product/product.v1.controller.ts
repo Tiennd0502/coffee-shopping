@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import { catchAsync } from '@/shared/utils/async-handler';
 import { parseOrThrow } from '@/shared/utils/validation';
 
 import {
@@ -11,36 +10,48 @@ import {
   ProductParamSchema,
   UpdateProductSchema,
 } from './product.dto';
-import * as productService from './product.service';
-import { toResponse } from './product.mapper';
+import { ProductMapper } from './product.mapper';
+import type { ProductService } from './product.service';
 
-export const createProduct = catchAsync(async (req: Request, res: Response) => {
-  const input = parseOrThrow(CreateProductSchema.safeParse(req.body));
-  const product = await productService.createProduct(input, req.userId!);
-  res.status(StatusCodes.CREATED).json({ data: toResponse(product) });
-});
+export class ProductController {
+  constructor(private readonly service: ProductService) {}
 
-export const listProducts = catchAsync(async (req: Request, res: Response) => {
-  const query = parseOrThrow(ListProductsQuerySchema.safeParse(req.query));
-  const result = await productService.findAllProducts(query);
-  res.status(StatusCodes.OK).json({ data: result.data.map(toResponse), meta: result.meta });
-});
+  list = async (req: Request, res: Response): Promise<void> => {
+    const query = parseOrThrow(ListProductsQuerySchema.safeParse(req.query));
+    const result = await this.service.findAll(query, { requesterRole: req.userRole });
 
-export const getProduct = catchAsync(async (req: Request, res: Response) => {
-  const { id } = parseOrThrow(productIdParamSchema.safeParse(req.params));
-  const product = await productService.findProductById(id);
-  res.status(StatusCodes.OK).json({ data: toResponse(product) });
-});
+    res.status(StatusCodes.OK).json({
+      data: result.data.map(ProductMapper.toResponse),
+      meta: result.meta,
+    });
+  };
 
-export const updateProduct = catchAsync(async (req: Request, res: Response) => {
-  const { id } = parseOrThrow(productIdParamSchema.safeParse(req.params));
-  const input = parseOrThrow(UpdateProductSchema.safeParse(req.body));
-  const product = await productService.updateProduct(id, input, req.userId!);
-  res.status(StatusCodes.OK).json({ data: toResponse(product) });
-});
+  get = async (req: Request, res: Response): Promise<void> => {
+    const { id } = parseOrThrow(productIdParamSchema.safeParse(req.params));
+    const product = await this.service.findById(id);
 
-export const deleteProduct = catchAsync(async (req: Request, res: Response) => {
-  const { id } = parseOrThrow(ProductParamSchema.safeParse(req.params));
-  await productService.removeProduct(id, req.userId!);
-  res.status(StatusCodes.NO_CONTENT).send();
-});
+    res.status(StatusCodes.OK).json({ data: ProductMapper.toResponse(product) });
+  };
+
+  create = async (req: Request, res: Response): Promise<void> => {
+    const input = parseOrThrow(CreateProductSchema.safeParse(req.body));
+    const product = await this.service.create(input, req.userId!);
+
+    res.status(StatusCodes.CREATED).json({ data: ProductMapper.toResponse(product) });
+  };
+
+  update = async (req: Request, res: Response): Promise<void> => {
+    const { id } = parseOrThrow(productIdParamSchema.safeParse(req.params));
+    const input = parseOrThrow(UpdateProductSchema.safeParse(req.body));
+    const product = await this.service.update(id, input, req.userId!);
+
+    res.status(StatusCodes.OK).json({ data: ProductMapper.toResponse(product) });
+  };
+
+  remove = async (req: Request, res: Response): Promise<void> => {
+    const { id } = parseOrThrow(ProductParamSchema.safeParse(req.params));
+    await this.service.remove(id, req.userId!);
+
+    res.status(StatusCodes.NO_CONTENT).send();
+  };
+}

@@ -44,3 +44,15 @@ export async function assertNoDuplicate<Entity extends ObjectLiteral>(
     throw new ConflictError(conflictMessage);
   }
 }
+
+/**
+ * Shallow-assigns only keys whose values are not `undefined`.
+ * Useful for PATCH semantics where `undefined` means "do not change field".
+ */
+export function assignDefined<T extends object>(target: T, patch: Partial<T>): void {
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) {
+      (target as Record<string, unknown>)[key] = value;
+    }
+  }
+}

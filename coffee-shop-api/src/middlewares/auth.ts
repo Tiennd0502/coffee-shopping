@@ -58,3 +58,36 @@ export const requireAdmin: RequestHandler = (
   }
   next();
 };
+
+/**
+ * Best-effort identity attachment for public endpoints.
+ * Does not reject anonymous/invalid sessions; only enriches req when a valid active user is found.
+ */
+export const attachUserIfAuthenticated: RequestHandler = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  let clerkId: string | null = null;
+  try {
+    clerkId = getAuth(req).userId;
+  } catch {
+    next();
+    return;
+  }
+
+  if (!clerkId) {
+    next();
+    return;
+  }
+
+  const user = await userService.findByClerkId(clerkId);
+  if (!user || user.status === USER_STATUS.INACTIVE) {
+    next();
+    return;
+  }
+
+  req.userId = user.id;
+  req.userRole = user.role;
+  next();
+};

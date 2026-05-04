@@ -1,12 +1,15 @@
-import AppDataSource from '@/config/database';
 import { In } from 'typeorm';
-import { Category } from '@/modules/category/category.entity';
+
 import type { ListProductsQuery, UpdateProductInput } from '@/modules/product/product.dto';
 import { ProductImage } from '@/modules/product/product-image.entity';
-import { ProductVariant } from '@/modules/product/product-variant.entity';
+import { ProductImageRepository } from '@/modules/product/product-image.repository';
+import { ProductRepository } from '@/modules/product/product.repository';
+import { ProductService } from '@/modules/product/product.service';
+import { ProductVariantRepository } from '@/modules/product/product-variant.repository';
 import { Product } from '@/modules/product/product.entity';
-import { findAllProducts, updateProduct } from '@/modules/product/product.service';
+import { CategoryRepository } from '@/modules/category/category.repository';
 import { PRODUCT_SORT, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { USER_ROLE } from '@/shared/enums/user';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { slugFrom } from '@/shared/utils/slug';
 
@@ -21,17 +24,19 @@ jest.mock('@/config/logger', () => ({
 const mockProductRepo = {
   findOne: jest.fn(),
   save: jest.fn(),
+  create: jest.fn(),
 };
 
 const mockImageRepo = {
   find: jest.fn(),
-  delete: jest.fn(),
+  softDelete: jest.fn(),
   save: jest.fn(),
   create: jest.fn((data: unknown) => data),
 };
 
 const mockVariantRepo = {
   findOne: jest.fn(),
+  find: jest.fn(),
   create: jest.fn(),
 };
 
@@ -39,11 +44,13 @@ const mockCategoryRepo = {
   findOne: jest.fn(),
 };
 
+const mockDataSource = {
+  transaction: jest.fn(),
+};
+
 const getRepositoryImpl = (entity: unknown): unknown => {
   if (entity === Product) return mockProductRepo;
   if (entity === ProductImage) return mockImageRepo;
-  if (entity === ProductVariant) return mockVariantRepo;
-  if (entity === Category) return mockCategoryRepo;
   return {};
 };
 
@@ -92,7 +99,9 @@ const makeExistingImage = (overrides: Partial<ProductImage> = {}): ProductImage 
     ...overrides,
   }) as unknown as ProductImage;
 
-describe('ProductService.updateProduct', () => {
+describe('ProductService.update', () => {
+  let service: ProductService;
+
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
@@ -101,15 +110,23 @@ describe('ProductService.updateProduct', () => {
       .mocked(slugFrom)
       .mockImplementation((name: string) => `${name.toLowerCase().replace(/\s+/g, '-')}-xxxx`);
 
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) => getRepositoryImpl(entity) as never);
+    mockDataSource.transaction.mockImplementation(
+      async (cb: (manager: { getRepository: (entity: unknown) => unknown }) => Promise<unknown>) =>
+        cb({ getRepository: getRepositoryImpl }),
+    );
 
-    jest
-      .spyOn(AppDataSource, 'transaction')
-      .mockImplementation((async (
-        cb: (manager: { getRepository: (e: unknown) => unknown }) => Promise<unknown>,
-      ) => cb({ getRepository: getRepositoryImpl })) as never);
+    const productRepo = new ProductRepository(mockProductRepo as never);
+    const imageRepo = new ProductImageRepository(mockImageRepo as never);
+    const variantRepo = new ProductVariantRepository(mockVariantRepo as never);
+    const categoryRepo = new CategoryRepository(mockCategoryRepo as never);
+
+    service = new ProductService({
+      productRepo,
+      imageRepo,
+      variantRepo,
+      categoryRepo,
+      dataSource: mockDataSource as never,
+    });
   });
 
   it('updates scalar fields', async () => {
@@ -125,7 +142,7 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(saved);
     mockProductRepo.save.mockResolvedValue(saved);
 
-    const result = await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    const result = await service.update(PRODUCT_ID, input, ADMIN_ID);
 
     expect(result.status).toBe(PRODUCT_STATUS.ACTIVE);
     expect(result.isOrganic).toBe(true);
@@ -145,7 +162,7 @@ describe('ProductService.updateProduct', () => {
       .mockResolvedValueOnce(saved);
     mockProductRepo.save.mockResolvedValue(saved);
 
-    const result = await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    const result = await service.update(PRODUCT_ID, input, ADMIN_ID);
 
     expect(result.slug).toBe(expectedSlug);
     expect(slugFrom).toHaveBeenCalledWith('New Name');
@@ -156,7 +173,7 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
     mockProductRepo.save.mockResolvedValue(existing);
 
-    const result = await updateProduct(PRODUCT_ID, {}, ADMIN_ID);
+    const result = await service.update(PRODUCT_ID, {}, ADMIN_ID);
 
     expect(result.id).toBe(PRODUCT_ID);
     expect(mockCategoryRepo.findOne).not.toHaveBeenCalled();
@@ -166,7 +183,7 @@ describe('ProductService.updateProduct', () => {
   it('throws NotFoundError when product does not exist', async () => {
     mockProductRepo.findOne.mockResolvedValueOnce(null);
 
-    await expect(updateProduct(PRODUCT_ID, {}, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.update(PRODUCT_ID, {}, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws NotFoundError when product disappears before final reload', async () => {
@@ -176,7 +193,7 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(null);
     mockProductRepo.save.mockResolvedValue(existing);
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws NotFoundError when new category does not exist', async () => {
@@ -186,7 +203,7 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.findOne.mockResolvedValueOnce(existing);
     mockCategoryRepo.findOne.mockResolvedValueOnce(null);
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws ConflictError when regenerated slug collides with another product', async () => {
@@ -196,7 +213,7 @@ describe('ProductService.updateProduct', () => {
 
     mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(otherProduct);
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(ConflictError);
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(ConflictError);
   });
 
   it('skips category lookup when categoryId unchanged', async () => {
@@ -211,7 +228,7 @@ describe('ProductService.updateProduct', () => {
       .mockResolvedValueOnce({ ...existing, status: PRODUCT_STATUS.ACTIVE });
     mockProductRepo.save.mockResolvedValue(existing);
 
-    await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
 
     expect(mockCategoryRepo.findOne).not.toHaveBeenCalled();
   });
@@ -225,7 +242,7 @@ describe('ProductService.updateProduct', () => {
       .mockResolvedValueOnce({ ...existing, status: PRODUCT_STATUS.ACTIVE });
     mockProductRepo.save.mockResolvedValue(existing);
 
-    await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
 
     expect(slugFrom).not.toHaveBeenCalled();
   });
@@ -240,11 +257,11 @@ describe('ProductService.updateProduct', () => {
       .mockResolvedValueOnce({ ...existing, images: [] });
     mockProductRepo.save.mockResolvedValue(existing);
     mockImageRepo.find.mockResolvedValueOnce([toRemove]).mockResolvedValueOnce([]);
-    mockImageRepo.delete.mockResolvedValue({ affected: 1 });
+    mockImageRepo.softDelete.mockResolvedValue({ affected: 1 });
 
-    await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
 
-    expect(mockImageRepo.delete).toHaveBeenCalledWith({ id: In([EXISTING_IMAGE_ID]) });
+    expect(mockImageRepo.softDelete).toHaveBeenCalledWith({ id: In([EXISTING_IMAGE_ID]) });
   });
 
   it('throws BadRequestError when removeImageIds include ids not belonging to product', async () => {
@@ -257,10 +274,10 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.save.mockResolvedValue(existing);
     mockImageRepo.find.mockResolvedValueOnce([makeExistingImage({ id: EXISTING_IMAGE_ID })]);
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
       BadRequestError,
     );
-    expect(mockImageRepo.delete).not.toHaveBeenCalled();
+    expect(mockImageRepo.softDelete).not.toHaveBeenCalled();
   });
 
   it('updates existing image fields while preserving id', async () => {
@@ -279,7 +296,7 @@ describe('ProductService.updateProduct', () => {
       .mockResolvedValueOnce([target])
       .mockResolvedValueOnce([{ ...target, isPrimary: true, sortOrder: 5 }]);
 
-    await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
 
     expect(mockImageRepo.save).toHaveBeenCalledWith([
       expect.objectContaining({ id: EXISTING_IMAGE_ID, isPrimary: true, sortOrder: 5 }),
@@ -296,7 +313,7 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.save.mockResolvedValue(existing);
     mockImageRepo.find.mockResolvedValueOnce([]);
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
       BadRequestError,
     );
     expect(mockImageRepo.save).not.toHaveBeenCalled();
@@ -314,11 +331,11 @@ describe('ProductService.updateProduct', () => {
       makeExistingImage({ isPrimary: true, url: 'https://example.com/new.jpg' }),
     ]);
 
-    await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
 
-    expect(mockImageRepo.create).toHaveBeenCalledWith(
+    expect(mockImageRepo.create).toHaveBeenCalledWith([
       expect.objectContaining({ url: 'https://example.com/new.jpg', productId: PRODUCT_ID }),
-    );
+    ]);
     expect(mockImageRepo.save).toHaveBeenCalled();
   });
 
@@ -334,7 +351,7 @@ describe('ProductService.updateProduct', () => {
     mockProductRepo.save.mockResolvedValue(existing);
     mockImageRepo.find.mockResolvedValueOnce([oldPrimary, newPrimary]);
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
       BadRequestError,
     );
   });
@@ -353,7 +370,7 @@ describe('ProductService.updateProduct', () => {
       ),
     );
 
-    await expect(updateProduct(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
+    await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(
       BadRequestError,
     );
   });
@@ -378,17 +395,73 @@ describe('ProductService.updateProduct', () => {
         makeExistingImage({ id: 'new-id', url: 'https://example.com/new.jpg', sortOrder: 2 }),
       ]);
 
-    await updateProduct(PRODUCT_ID, input, ADMIN_ID);
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
 
-    expect(mockImageRepo.delete).toHaveBeenCalled();
+    expect(mockImageRepo.softDelete).toHaveBeenCalled();
     expect(mockImageRepo.save).toHaveBeenCalledTimes(2);
-    expect(mockImageRepo.create).toHaveBeenCalledWith(
+    expect(mockImageRepo.create).toHaveBeenCalledWith([
       expect.objectContaining({ url: 'https://example.com/new.jpg', productId: PRODUCT_ID }),
+    ]);
+  });
+});
+
+describe('ProductService.remove', () => {
+  let service: ProductService;
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+
+    const productRepo = new ProductRepository(mockProductRepo as never);
+    const imageRepo = new ProductImageRepository(mockImageRepo as never);
+    const variantRepo = new ProductVariantRepository(mockVariantRepo as never);
+    const categoryRepo = new CategoryRepository(mockCategoryRepo as never);
+
+    service = new ProductService({
+      productRepo,
+      imageRepo,
+      variantRepo,
+      categoryRepo,
+      dataSource: mockDataSource as never,
+    });
+  });
+
+  it('updates product status to ARCHIVED before soft delete', async () => {
+    const existing = makeExistingProduct();
+    const mockQb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({}),
+    };
+
+    mockProductRepo.findOne.mockResolvedValue(existing);
+    mockDataSource.transaction.mockImplementation(
+      async (
+        cb: (manager: {
+          createQueryBuilder: () => typeof mockQb;
+          softDelete: jest.Mock;
+        }) => Promise<unknown>,
+      ) =>
+        cb({
+          createQueryBuilder: () => mockQb,
+          softDelete: jest.fn().mockResolvedValue({}),
+        }),
+    );
+
+    await service.remove(PRODUCT_ID, ADMIN_ID);
+
+    expect(mockQb.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: PRODUCT_STATUS.ARCHIVED,
+        updatedBy: ADMIN_ID,
+        deletedBy: ADMIN_ID,
+      }),
     );
   });
 });
 
-describe('ProductService.findAllProducts', () => {
+describe('ProductRepository.findAll', () => {
   const mockQb = {
     orderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
@@ -402,14 +475,14 @@ describe('ProductService.findAllProducts', () => {
     find: jest.fn(),
   };
 
+  const listRepository = new ProductRepository(mockListRepo as never);
+
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.restoreAllMocks();
     mockQb.orderBy.mockReturnThis();
     mockQb.skip.mockReturnThis();
     mockQb.take.mockReturnThis();
     mockQb.andWhere.mockReturnThis();
-    jest.spyOn(AppDataSource, 'getRepository').mockReturnValue(mockListRepo as never);
   });
 
   const DEFAULT_QUERY: ListProductsQuery = { page: 1, limit: 10 };
@@ -419,7 +492,7 @@ describe('ProductService.findAllProducts', () => {
   it('returns empty result and skips relation load when no products found', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    const result = await findAllProducts(DEFAULT_QUERY);
+    const result = await listRepository.findAll(DEFAULT_QUERY);
 
     expect(result.data).toEqual([]);
     expect(result.meta!.totalCount).toBe(0);
@@ -430,7 +503,7 @@ describe('ProductService.findAllProducts', () => {
     mockQb.getManyAndCount.mockResolvedValue([[STUB_PRODUCT], 1]);
     mockListRepo.find.mockResolvedValue([STUB_FULL]);
 
-    const result = await findAllProducts(DEFAULT_QUERY);
+    const result = await listRepository.findAll(DEFAULT_QUERY);
 
     expect(result.data).toHaveLength(1);
     expect(result.meta!.totalCount).toBe(1);
@@ -441,7 +514,7 @@ describe('ProductService.findAllProducts', () => {
   it('applies status filter', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, status: PRODUCT_STATUS.ACTIVE });
+    await listRepository.findAll({ ...DEFAULT_QUERY, status: PRODUCT_STATUS.ACTIVE });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith('product.status = :status', {
       status: PRODUCT_STATUS.ACTIVE,
@@ -451,7 +524,7 @@ describe('ProductService.findAllProducts', () => {
   it('applies categoryId filter', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, categoryId: OLD_CATEGORY_ID });
+    await listRepository.findAll({ ...DEFAULT_QUERY, categoryId: OLD_CATEGORY_ID });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith('product.categoryId = :categoryId', {
       categoryId: OLD_CATEGORY_ID,
@@ -461,7 +534,7 @@ describe('ProductService.findAllProducts', () => {
   it('applies single roastLevel filter', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, roastLevel: [ROAST_LEVEL.DARK] });
+    await listRepository.findAll({ ...DEFAULT_QUERY, roastLevel: [ROAST_LEVEL.DARK] });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith('product.roastLevel IN (:...roastLevels)', {
       roastLevels: [ROAST_LEVEL.DARK],
@@ -471,7 +544,10 @@ describe('ProductService.findAllProducts', () => {
   it('applies multiple roastLevel filter', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, roastLevel: [ROAST_LEVEL.DARK, ROAST_LEVEL.LIGHT] });
+    await listRepository.findAll({
+      ...DEFAULT_QUERY,
+      roastLevel: [ROAST_LEVEL.DARK, ROAST_LEVEL.LIGHT],
+    });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith('product.roastLevel IN (:...roastLevels)', {
       roastLevels: [ROAST_LEVEL.DARK, ROAST_LEVEL.LIGHT],
@@ -481,7 +557,7 @@ describe('ProductService.findAllProducts', () => {
   it('applies search filter with ILIKE on name and slug', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, search: 'Ethiopia' });
+    await listRepository.findAll({ ...DEFAULT_QUERY, search: 'Ethiopia' });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith(
       'product.name ILIKE :search OR product.slug ILIKE :search',
@@ -492,7 +568,7 @@ describe('ProductService.findAllProducts', () => {
   it('applies minPrice filter via correlated subquery on min variant price', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, minPrice: 10 });
+    await listRepository.findAll({ ...DEFAULT_QUERY, minPrice: 10 });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), {
       minPrice: 10,
@@ -502,7 +578,7 @@ describe('ProductService.findAllProducts', () => {
   it('applies maxPrice filter via correlated subquery on min variant price', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, maxPrice: 50 });
+    await listRepository.findAll({ ...DEFAULT_QUERY, maxPrice: 50 });
 
     expect(mockQb.andWhere).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), {
       maxPrice: 50,
@@ -515,7 +591,7 @@ describe('ProductService.findAllProducts', () => {
   ] as const)('sorts by %s → orderBy(%s, %s)', async (sortBy, field, dir) => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, sortBy });
+    await listRepository.findAll({ ...DEFAULT_QUERY, sortBy });
 
     expect(mockQb.orderBy).toHaveBeenCalledWith(field, dir);
   });
@@ -523,7 +599,7 @@ describe('ProductService.findAllProducts', () => {
   it('sorts by PRICE_ASC using min-variant subquery', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, sortBy: PRODUCT_SORT.PRICE_ASC });
+    await listRepository.findAll({ ...DEFAULT_QUERY, sortBy: PRODUCT_SORT.PRICE_ASC });
 
     expect(mockQb.orderBy).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), 'ASC');
   });
@@ -531,7 +607,7 @@ describe('ProductService.findAllProducts', () => {
   it('sorts by PRICE_DESC using min-variant subquery', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts({ ...DEFAULT_QUERY, sortBy: PRODUCT_SORT.PRICE_DESC });
+    await listRepository.findAll({ ...DEFAULT_QUERY, sortBy: PRODUCT_SORT.PRICE_DESC });
 
     expect(mockQb.orderBy).toHaveBeenCalledWith(expect.stringContaining('MIN(v.price)'), 'DESC');
   });
@@ -539,9 +615,42 @@ describe('ProductService.findAllProducts', () => {
   it('defaults to curated sort (createdAt DESC) when sortBy is omitted', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await findAllProducts(DEFAULT_QUERY);
+    await listRepository.findAll(DEFAULT_QUERY);
 
     expect(mockQb.orderBy).toHaveBeenCalledWith('product.createdAt', 'DESC');
+  });
+
+  it('defaults non-admin listing to ACTIVE products', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listRepository.findAll(DEFAULT_QUERY);
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith('product.status = :status', {
+      status: PRODUCT_STATUS.ACTIVE,
+    });
+  });
+
+  it('does not force ACTIVE status for admin listing', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listRepository.findAll(DEFAULT_QUERY, { requesterRole: USER_ROLE.ADMIN });
+
+    expect(mockQb.andWhere).not.toHaveBeenCalledWith('product.status = :status', {
+      status: PRODUCT_STATUS.ACTIVE,
+    });
+  });
+
+  it('applies status filter when admin explicitly requests status', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listRepository.findAll(
+      { ...DEFAULT_QUERY, status: PRODUCT_STATUS.INACTIVE },
+      { requesterRole: USER_ROLE.ADMIN },
+    );
+
+    expect(mockQb.andWhere).toHaveBeenCalledWith('product.status = :status', {
+      status: PRODUCT_STATUS.INACTIVE,
+    });
   });
 
   it('preserves original sort order of ids returned by pagination query', async () => {
@@ -553,7 +662,7 @@ describe('ProductService.findAllProducts', () => {
     mockQb.getManyAndCount.mockResolvedValue([[P1, P2], 2]);
     mockListRepo.find.mockResolvedValue([FULL_P2, FULL_P1]);
 
-    const result = await findAllProducts(DEFAULT_QUERY);
+    const result = await listRepository.findAll(DEFAULT_QUERY);
 
     expect(result.data[0].id).toBe(PRODUCT_ID);
     expect(result.data[1].id).toBe(OTHER_PRODUCT_ID);
