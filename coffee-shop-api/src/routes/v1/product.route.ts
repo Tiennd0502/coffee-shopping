@@ -3,8 +3,8 @@ import type { ErrorRequestHandler } from 'express';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import { requireAdmin, requireAuthenticated } from '@/middlewares/auth';
-import * as productController from '@/modules/product/product.v1.controller';
+import { productController } from '@/container';
+import { attachUserIfAuthenticated, requireAdmin, requireAuthenticated } from '@/middlewares/auth';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
@@ -21,14 +21,15 @@ const clerkErrorHandler: ErrorRequestHandler = (_err, _req, _res, next) => {
 
 router.use(clerkMiddleware());
 router.use(clerkErrorHandler);
+router.use(attachUserIfAuthenticated);
 
-router.get('/', productController.listProducts);
-router.get('/:id', productController.getProduct);
+router.get('/', productController.list);
+router.get('/:id', productController.get);
 
 router.use(requireAuthenticated);
 router.use(requireAdmin);
-router.post('/', productController.createProduct);
-router.patch('/:id', productController.updateProduct);
-router.delete('/:id', productController.deleteProduct);
+router.post('/', productController.create);
+router.patch('/:id', productController.update);
+router.delete('/:id', productController.remove);
 
 export default router;
