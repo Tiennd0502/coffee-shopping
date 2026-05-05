@@ -16,6 +16,7 @@ import {
   PAYMENT_STATUS,
   SHIPPING_STATUS,
 } from '@/shared/enums/order';
+import { DISCOUNT_TYPE } from '@/shared/enums/product';
 import { USER_STATUS } from '@/shared/enums/user';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
@@ -142,6 +143,20 @@ describe('OrderService.create', () => {
   const variantId = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
   const shippingMethodId = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
   const newOrderId = '11111111-2222-4333-8444-555555555555';
+  const variantData = {
+    id: variantId,
+    sku: 'SKU1',
+    quantity: 10,
+    price: '50000',
+    discountValue: null,
+    discountType: null,
+    name: 'Variant A',
+    product: {
+      id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+      name: 'Coffee',
+      images: [],
+    },
+  };
 
   const baseInput = {
     shippingAddress: {
@@ -169,30 +184,24 @@ describe('OrderService.create', () => {
       name: 'Standard',
       price: '10000',
     });
-    mockVariantRepo.findByIds.mockResolvedValue([
-      {
-        id: variantId,
-        sku: 'SKU1',
-        quantity: 10,
-        price: '50000',
-        discountValue: null,
-        discountType: null,
-        name: 'Variant A',
-        product: {
-          id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-          name: 'Coffee',
-          images: [],
-        },
-      },
-    ]);
+    mockVariantRepo.findByIds.mockResolvedValue([{ ...variantData }]);
 
     (mockDataSource.transaction as jest.Mock).mockImplementation(
       async (cb: (manager: unknown) => Promise<string>) => {
+        const variantQueryBuilder = {
+          whereInIds: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getMany: jest.fn().mockResolvedValue([{ ...variantData, quantity: 10 }]),
+        };
+        const variantTxRepo = {
+          createQueryBuilder: jest.fn().mockReturnValue(variantQueryBuilder),
+        };
         const addressRepo = {
           count: jest.fn().mockResolvedValue(1),
         };
         const manager = {
           getRepository: jest.fn((entity: unknown) => {
+            if (entity === ProductVariant) return variantTxRepo;
             if (entity === UserAddress) return addressRepo;
             if (entity === Order)
               return {
@@ -218,6 +227,182 @@ describe('OrderService.create', () => {
     jest.mocked(PaymentStrategyFactory.create).mockReturnValue({
       initiate: jest.fn().mockResolvedValue({ paymentStatus: PAYMENT_STATUS.PAID }),
     });
+  });
+
+  it('throws NotFoundError when user does not exist', async () => {
+    mockUserRepo.findById.mockResolvedValue(null);
+
+    await expect(service.create(baseInput, userId)).rejects.toBeInstanceOf(NotFoundError);
+    expect(mockShippingRepo.findActiveById).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestError when user is not active', async () => {
+    mockUserRepo.findById.mockResolvedValue({
+      id: userId,
+      status: USER_STATUS.INACTIVE,
+    });
+
+    await expect(service.create(baseInput, userId)).rejects.toBeInstanceOf(BadRequestError);
+    expect(mockShippingRepo.findActiveById).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError when shipping method does not exist', async () => {
+    mockShippingRepo.findActiveById.mockResolvedValue(null);
+
+    await expect(service.create(baseInput, userId)).rejects.toBeInstanceOf(NotFoundError);
+    expect(mockVariantRepo.findByIds).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestError when request contains duplicate variant ids', async () => {
+    await expect(
+      service.create(
+        {
+          ...baseInput,
+          items: [
+            { variantId, quantity: 1 },
+            { variantId, quantity: 2 },
+          ],
+        },
+        userId,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    expect(mockVariantRepo.findByIds).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError when requested variant is not found in pre-check', async () => {
+    mockVariantRepo.findByIds.mockResolvedValue([]);
+
+    await expect(service.create(baseInput, userId)).rejects.toBeInstanceOf(NotFoundError);
+    expect(mockDataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestError when pre-check stock is insufficient', async () => {
+    mockVariantRepo.findByIds.mockResolvedValue([{ ...variantData, quantity: 0 }]);
+
+    await expect(service.create(baseInput, userId)).rejects.toBeInstanceOf(BadRequestError);
+    expect(mockDataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError when created order cannot be reloaded', async () => {
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(null);
+
+    await expect(service.create(baseInput, userId)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('creates default user address snapshot when user has no saved address', async () => {
+    const variantQueryBuilder = {
+      whereInIds: jest.fn().mockReturnThis(),
+      setLock: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([{ ...variantData, quantity: 10 }]),
+    };
+    const variantTxRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue(variantQueryBuilder),
+    };
+    const addressRepo = {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn((payload: unknown) => payload),
+      save: jest.fn(async (payload: object) => payload),
+    };
+    const manager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === ProductVariant) return variantTxRepo;
+        if (entity === UserAddress) return addressRepo;
+        if (entity === Order) return { create: jest.fn((d: unknown) => d) };
+        if (entity === OrderItem) return { create: jest.fn((d: unknown) => d) };
+        return {};
+      }),
+      save: jest.fn(async (order: object) => ({ ...order, id: newOrderId })),
+      decrement: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const fullOrder = { ...makeOrder(ORDER_STATUS.PENDING), id: newOrderId };
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(fullOrder);
+    (mockDataSource.transaction as jest.Mock).mockImplementation(
+      async (cb: (m: typeof manager) => Promise<string>) => cb(manager),
+    );
+
+    await service.create(
+      {
+        ...baseInput,
+        paymentMethod: PAYMENT_METHOD.COD,
+        shippingAddress: {
+          ...baseInput.shippingAddress,
+          district: '   ',
+          ward: undefined,
+          postalCode: undefined,
+        },
+      },
+      userId,
+    );
+
+    expect(addressRepo.create).toHaveBeenCalledWith({
+      userId,
+      ...baseInput.shippingAddress,
+      district: '',
+      ward: '',
+      postalCode: '',
+      isDefault: true,
+    });
+    expect(addressRepo.save).toHaveBeenCalled();
+  });
+
+  it('calculates discountAmount from non-null discountValue', async () => {
+    mockVariantRepo.findByIds.mockResolvedValue([
+      {
+        ...variantData,
+        discountType: DISCOUNT_TYPE.FIXED,
+        discountValue: '5000',
+      },
+    ]);
+
+    const orderItemRepo = {
+      create: jest.fn((item: unknown) => item),
+    };
+    const manager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === ProductVariant)
+          return {
+            createQueryBuilder: jest.fn().mockReturnValue({
+              whereInIds: jest.fn().mockReturnThis(),
+              setLock: jest.fn().mockReturnThis(),
+              getMany: jest.fn().mockResolvedValue([
+                {
+                  ...variantData,
+                  discountType: DISCOUNT_TYPE.FIXED,
+                  discountValue: '5000',
+                  quantity: 10,
+                },
+              ]),
+            }),
+          };
+        if (entity === UserAddress) return { count: jest.fn().mockResolvedValue(1) };
+        if (entity === Order) return { create: jest.fn((d: unknown) => d) };
+        if (entity === OrderItem) return orderItemRepo;
+        return {};
+      }),
+      save: jest.fn(async (order: object) => ({ ...order, id: newOrderId })),
+      decrement: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue({
+      ...makeOrder(ORDER_STATUS.PENDING),
+      id: newOrderId,
+    });
+    (mockDataSource.transaction as jest.Mock).mockImplementation(
+      async (cb: (m: typeof manager) => Promise<string>) => cb(manager),
+    );
+
+    await service.create(baseInput, userId);
+
+    expect(orderItemRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unitPrice: 50000,
+        discountAmount: 5000,
+        finalPrice: 45000,
+        subTotal: 45000,
+      }),
+    );
   });
 
   it('persists PAID when payment strategy returns PAID', async () => {
@@ -255,6 +440,113 @@ describe('OrderService.create', () => {
 
     expect(mockOrderRepo.save).not.toHaveBeenCalled();
     expect(result.paymentStatus).toBe(PAYMENT_STATUS.UNPAID);
+  });
+
+  describe('OrderService.create — locked stock check inside transaction', () => {
+    const buildLockedVariantRepo = (lockedQuantity: number) => ({
+      createQueryBuilder: jest.fn().mockReturnValue({
+        whereInIds: jest.fn().mockReturnThis(),
+        setLock: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([{ ...variantData, quantity: lockedQuantity }]),
+      }),
+    });
+
+    const buildManager = (lockedVariantRepo: ReturnType<typeof buildLockedVariantRepo>) => ({
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === ProductVariant) return lockedVariantRepo;
+        if (entity === UserAddress) return { count: jest.fn().mockResolvedValue(1) };
+        if (entity === Order) return { create: jest.fn((d: unknown) => d) };
+        if (entity === OrderItem) return { create: jest.fn((d: unknown) => d) };
+        return {};
+      }),
+      save: jest.fn(async (order: object) => ({ ...order, id: newOrderId })),
+      decrement: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
+    });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      service = buildService();
+
+      mockUserRepo.findById.mockResolvedValue({ id: userId, status: USER_STATUS.ACTIVE });
+      mockShippingRepo.findActiveById.mockResolvedValue({
+        id: shippingMethodId,
+        name: 'Standard',
+        price: '10000',
+      });
+      mockVariantRepo.findByIds.mockResolvedValue([{ ...variantData, quantity: 10 }]);
+
+      jest.mocked(PaymentStrategyFactory.create).mockReturnValue({
+        initiate: jest.fn().mockResolvedValue({ paymentStatus: PAYMENT_STATUS.UNPAID }),
+      });
+    });
+
+    it('throws BadRequestError when locked stock is insufficient (race condition caught)', async () => {
+      const lockedVariantRepo = buildLockedVariantRepo(1);
+      const manager = buildManager(lockedVariantRepo);
+      (mockDataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: (m: typeof manager) => Promise<string>) => cb(manager),
+      );
+
+      await expect(
+        service.create(
+          { ...baseInput, paymentMethod: PAYMENT_METHOD.COD, items: [{ variantId, quantity: 2 }] },
+          userId,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestError);
+      expect(manager.decrement).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundError when locked variant is missing inside transaction', async () => {
+      const emptyRepo = {
+        createQueryBuilder: jest.fn().mockReturnValue({
+          whereInIds: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getMany: jest.fn().mockResolvedValue([]),
+        }),
+      };
+      const manager = buildManager(emptyRepo as ReturnType<typeof buildLockedVariantRepo>);
+      (mockDataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: (m: typeof manager) => Promise<string>) => cb(manager),
+      );
+
+      await expect(
+        service.create(
+          { ...baseInput, paymentMethod: PAYMENT_METHOD.COD, items: [{ variantId, quantity: 2 }] },
+          userId,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundError);
+      expect(manager.decrement).not.toHaveBeenCalled();
+    });
+
+    it('acquires pessimistic_write lock and calls setLock with correct mode', async () => {
+      const lockedVariantRepo = buildLockedVariantRepo(10);
+      const qb = lockedVariantRepo.createQueryBuilder();
+      const manager = buildManager(lockedVariantRepo);
+      const fullOrder = { ...makeOrder(ORDER_STATUS.PENDING), id: newOrderId };
+      mockOrderRepo.findByIdWithRelations.mockResolvedValue(fullOrder);
+
+      (mockDataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: (m: typeof manager) => Promise<string>) => {
+          lockedVariantRepo.createQueryBuilder.mockReturnValue(qb);
+          return cb(manager);
+        },
+      );
+
+      await service.create(
+        { ...baseInput, paymentMethod: PAYMENT_METHOD.COD, items: [{ variantId, quantity: 2 }] },
+        userId,
+      );
+
+      expect(lockedVariantRepo.createQueryBuilder).toHaveBeenCalled();
+      expect(qb.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(manager.decrement).toHaveBeenCalledWith(
+        ProductVariant,
+        { id: variantId },
+        'quantity',
+        2,
+      );
+    });
   });
 });
 
