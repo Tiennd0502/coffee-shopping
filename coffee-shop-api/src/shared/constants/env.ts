@@ -3,6 +3,9 @@ export const MIN_ENV_LENGTH = 1;
 export const DEFAULT_PORT = 3000;
 export const DEFAULT_DB_PORT = 5432;
 
+export const DEFAULT_RATE_LIMIT_WINDOW_MS = 1 * 60 * 1000; // 1 minute
+export const DEFAULT_RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute
+
 export const NODE_ENV_VALUES = ['development', 'production', 'test'] as const;
 export const DEFAULT_NODE_ENV = 'development';
 

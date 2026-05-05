@@ -11,6 +11,7 @@ export const ERROR_MESSAGES = {
   UNAUTHENTICATED: 'Authentication required',
   FORBIDDEN: 'Access forbidden',
   INACTIVE_ACCOUNT: 'Your account has been deactivated',
+  TOO_MANY_REQUESTS: 'Too many requests, please try again later.',
 
   ORDER: {
     USER_INACTIVE: 'Your account is not active and cannot place orders',

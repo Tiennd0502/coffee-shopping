@@ -1,9 +1,10 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { StatusCodes } from 'http-status-codes';
 
 import { env } from '@/config/env';
-import { StatusCodes } from 'http-status-codes';
 
 // Middlewares
 import { errorHandlerMiddleware } from '@/middlewares/error';
@@ -15,11 +16,23 @@ import router from '@/routes';
 // Shared
 import { catchAsync } from '@/shared/utils/async-handler';
 import type { RawBodyRequest } from '@/shared/types/request';
+import { TooManyRequestsError } from '@/shared/errors/app';
 
 const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(
+  rateLimit({
+    windowMs: env.RATE_LIMIT_WINDOW_MS,
+    limit: env.RATE_LIMIT_MAX_REQUESTS,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, _res, next) => {
+      next(new TooManyRequestsError());
+    },
+  }),
+);
 
 // Verify saves the raw buffer to req.rawBody before JSON parsing — required for svix webhook signature verification
 app.use(
