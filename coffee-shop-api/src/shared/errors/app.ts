@@ -4,7 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import { ERROR_MESSAGES } from './messages';
 import { ErrorCode } from './codes';
 
-interface ErrorItem {
+export interface ErrorItem {
   errCode: string;
   field: string;
   message: string;

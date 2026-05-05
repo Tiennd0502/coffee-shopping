@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { AuditableEntity } from '@/shared/entities/auditable';
-import { DISCOUNT_TYPE } from '@/shared/enums/product';
+import { DISCOUNT_TYPE, PRODUCT_UNIT } from '@/shared/enums/product';
 
 import { Product } from './product.entity';
 
@@ -17,8 +17,8 @@ export class ProductVariant extends AuditableEntity {
   @Column({ name: 'weight', type: 'decimal', precision: 10, scale: 2 })
   weight!: number;
 
-  @Column({ name: 'unit', type: 'varchar', length: 20 })
-  unit!: string;
+  @Column({ name: 'unit', type: 'enum', enum: PRODUCT_UNIT })
+  unit!: PRODUCT_UNIT;
 
   @Column({ name: 'name', type: 'varchar', length: 100 })
   name!: string;
