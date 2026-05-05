@@ -152,9 +152,20 @@ export class OrderService extends BaseService<Order, OrderRepository> {
       throw new NotFoundError('Order');
     }
 
-    await PaymentStrategyFactory.create(input.paymentMethod).initiate(fullOrder);
+    const { paymentStatus } = await PaymentStrategyFactory.create(input.paymentMethod).initiate(
+      fullOrder,
+    );
+    if (paymentStatus !== fullOrder.paymentStatus) {
+      fullOrder.paymentStatus = paymentStatus;
+      await this.repository.save(fullOrder);
+    }
 
-    log.info('Order placed', { orderId: fullOrder.id, orderNumber: fullOrder.orderNumber, userId });
+    log.info('Order placed', {
+      orderId: fullOrder.id,
+      orderNumber: fullOrder.orderNumber,
+      userId,
+      paymentStatus: fullOrder.paymentStatus,
+    });
     return fullOrder;
   }
 

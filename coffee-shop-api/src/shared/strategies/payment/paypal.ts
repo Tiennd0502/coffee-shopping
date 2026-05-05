@@ -1,12 +1,11 @@
-import AppDataSource from '@/config/database';
-import { Order } from '@/modules/order/order.entity';
+import type { Order } from '@/modules/order/order.entity';
 import { PAYMENT_STATUS } from '@/shared/enums/order';
 
-import type { PaymentStrategy } from './payment';
+import type { PaymentResult, PaymentStrategy } from './payment';
 
 export class PaypalPaymentStrategy implements PaymentStrategy {
-  async initiate(order: Order): Promise<void> {
-    order.paymentStatus = PAYMENT_STATUS.PAID;
-    await AppDataSource.getRepository(Order).save(order);
+  async initiate(_order: Order): Promise<PaymentResult> {
+    void _order;
+    return { paymentStatus: PAYMENT_STATUS.PAID };
   }
 }
