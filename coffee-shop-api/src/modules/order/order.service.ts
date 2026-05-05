@@ -137,6 +137,7 @@ export class OrderService extends BaseService<Order, OrderRepository> {
     const savedOrderId = await this.createOrderWithTransaction({
       input,
       userId,
+      variantIds,
       shippingMethodName: shippingMethod.name,
       itemData,
       subTotal,
@@ -279,6 +280,7 @@ export class OrderService extends BaseService<Order, OrderRepository> {
   private async createOrderWithTransaction(params: {
     input: CreateOrderInput;
     userId: string;
+    variantIds: string[];
     shippingMethodName: string;
     itemData: Array<{
       variantId: string;
@@ -303,6 +305,28 @@ export class OrderService extends BaseService<Order, OrderRepository> {
         params.userId,
         params.input,
       );
+
+      const lockedVariants = await manager
+        .getRepository(ProductVariant)
+        .createQueryBuilder('v')
+        .whereInIds(params.variantIds)
+        .setLock('pessimistic_write')
+        .getMany();
+
+      const lockedVariantMap = new Map(lockedVariants.map((variant) => [variant.id, variant]));
+
+      for (const item of params.input.items) {
+        const lockedVariant = lockedVariantMap.get(item.variantId);
+        if (!lockedVariant) {
+          throw new NotFoundError('Product variant');
+        }
+        if (lockedVariant.quantity < item.quantity) {
+          throw new BadRequestError(
+            ERROR_MESSAGES.ORDER.INSUFFICIENT_STOCK(lockedVariant.sku, lockedVariant.quantity),
+          );
+        }
+      }
+
       const order = manager.getRepository(Order).create({
         userId: params.userId,
         shippingMethodId: params.input.shippingMethodId,
