@@ -33,6 +33,7 @@ specifiers:
   ts-jest: ^29.4.6
   ts-node: ^10.9.2
   tsc-alias: ^1.8.16
+  tsconfig-paths: ^4.2.0
   tsx: ^4.21.0
   typeorm: 0.3.28
   typescript: ^5.9.3
@@ -78,6 +79,7 @@ devDependencies:
   ts-jest: 29.4.6_p2l723askb4mwtytbayecowzii
   ts-node: 10.9.2_5eq3vba3wxuthfxpxcipwy3ywq
   tsc-alias: 1.8.16
+  tsconfig-paths: 4.2.0
   tsx: 4.21.0
   typescript: 5.9.3
   typescript-eslint: 8.58.0_hszckgzgst4ngbfmk3puyacue4
@@ -5557,6 +5559,15 @@ packages:
     dependencies:
       '@types/json5': 0.0.29
       json5: 1.0.2
+      minimist: 1.2.8
+      strip-bom: 3.0.0
+    dev: true
+
+  /tsconfig-paths/4.2.0:
+    resolution: {integrity: sha512-NoZ4roiN7LnbKn9QqE1amc9DJfzvZXxF4xDavcOWt1BPkdx+m+0gJuPM+S0vCe7zTJMYUP0R8pO2XMr+Y8oLIg==}
+    engines: {node: '>=6'}
+    dependencies:
+      json5: 2.2.3
       minimist: 1.2.8
       strip-bom: 3.0.0
     dev: true

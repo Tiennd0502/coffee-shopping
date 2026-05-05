@@ -14,7 +14,10 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "prepare": "cd .. && husky coffee-shop-api/.husky",
-    "typeorm": "typeorm-ts-node-commonjs -d src/config/database.ts"
+    "typeorm": "typeorm-ts-node-commonjs -d src/config/database.ts",
+    "migration:run": "pnpm typeorm migration:run",
+    "migration:revert": "pnpm typeorm migration:revert",
+    "migration:generate": "pnpm typeorm migration:generate"
   },
   "keywords": [],
   "author": "tien.nguyen@asnet.com.vn",
@@ -58,6 +61,7 @@
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.2"

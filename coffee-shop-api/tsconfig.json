@@ -23,6 +23,9 @@
       "@/*": ["src/*"]
     }
   },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
   "include": ["src/**/*.ts", "src/**/*.d.ts"],
   "exclude": ["dist", "node_modules"]
 }
