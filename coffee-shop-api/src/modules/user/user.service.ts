@@ -1,3 +1,5 @@
+import type { DataSource } from 'typeorm';
+
 import { clerkClient } from '@/config/clerk';
 import { createModuleLogger } from '@/config/logger';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
@@ -25,12 +27,18 @@ export type ClerkUserFields = {
 
 const log = createModuleLogger('UserService');
 
+export interface UserServiceDeps {
+  userRepo: UserRepository;
+  addressRepo: UserAddressRepository;
+  dataSource: DataSource;
+}
+
 export class UserService extends BaseService<User, UserRepository> {
-  constructor(
-    userRepo: UserRepository,
-    private readonly addressRepo: UserAddressRepository,
-  ) {
-    super(userRepo);
+  private readonly addressRepo: UserAddressRepository;
+
+  constructor({ userRepo, addressRepo, dataSource }: UserServiceDeps) {
+    super(userRepo, dataSource);
+    this.addressRepo = addressRepo;
   }
 
   findAll(query: ListUsersQuery, currentUserId: string): Promise<PaginatedResponse<User[]>> {
@@ -84,6 +92,16 @@ export class UserService extends BaseService<User, UserRepository> {
       user.email = input.email;
     }
 
+    if (input.clerkId !== undefined) {
+      if (input.clerkId) {
+        const byClerk = await this.repository.findByClerkId(input.clerkId);
+        if (byClerk && byClerk.id !== user.id) {
+          throw new ConflictError(ERROR_MESSAGES.USER_CLERK_ID_TAKEN);
+        }
+      }
+      user.clerkId = input.clerkId;
+    }
+
     if (input.firstName !== undefined) {
       user.firstName = input.firstName;
     }
@@ -96,16 +114,6 @@ export class UserService extends BaseService<User, UserRepository> {
       user.phoneNumber = input.phoneNumber ?? null;
     }
 
-    if (input.clerkId !== undefined) {
-      if (input.clerkId) {
-        const byClerk = await this.repository.findByClerkId(input.clerkId);
-        if (byClerk && byClerk.id !== user.id) {
-          throw new ConflictError(ERROR_MESSAGES.USER_CLERK_ID_TAKEN);
-        }
-      }
-      user.clerkId = input.clerkId;
-    }
-
     if (input.status !== undefined) {
       user.status = input.status;
     }
@@ -115,30 +123,27 @@ export class UserService extends BaseService<User, UserRepository> {
     }
 
     const roleChanged = input.role !== undefined && input.role !== previousRole;
-    if (roleChanged && !user.clerkId) {
-      user.role = input.role!;
+    user.role = roleChanged ? input.role! : user.role;
+
+    if (roleChanged && user.clerkId) {
+      await clerkClient.users.updateUser(user.clerkId, {
+        publicMetadata: { role: input.role },
+      });
+      log.info('Synced role to Clerk', { userId: user.id, role: input.role });
     }
 
     const saved = await this.repository.save(user);
-    if (roleChanged && saved.clerkId) {
-      try {
-        await clerkClient.users.updateUser(saved.clerkId, {
-          publicMetadata: { role: input.role },
-        });
-        log.info('Synced role to Clerk', { userId: saved.id, role: input.role });
-      } catch (err) {
-        log.error('Failed to sync role to Clerk', { userId: saved.id, role: input.role, err });
-      }
-    }
-
     return saved;
   }
 
   async remove(id: string): Promise<void> {
     const user = await this.assertById(id, 'User');
-    user.email = `deleted_${user.id}_${user.email}`;
-    await this.repository.save(user);
-    await this.repository.softDelete(id);
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      user.email = `deleted_${user.id}_${user.email}`;
+      await userRepo.save(user);
+      await userRepo.softDelete(id);
+    });
   }
 
   findByClerkId(clerkId: string): Promise<User | null> {
@@ -152,10 +157,13 @@ export class UserService extends BaseService<User, UserRepository> {
       return;
     }
 
-    found.email = `deleted_${found.id}_${found.email}`;
-    found.status = USER_STATUS.INACTIVE;
-    await this.repository.save(found);
-    await this.repository.softDelete(found.id);
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      found.email = `deleted_${found.id}_${found.email}`;
+      found.status = USER_STATUS.INACTIVE;
+      await userRepo.save(found);
+      await userRepo.softDelete(found.id);
+    });
   }
 
   async syncClerkUserUpdated(fields: ClerkUserFields): Promise<void> {

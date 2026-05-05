@@ -7,6 +7,7 @@ import { ProductRepository } from '@/modules/product/product.repository';
 import { ProductService } from '@/modules/product/product.service';
 import { ProductVariantRepository } from '@/modules/product/product-variant.repository';
 import { Product } from '@/modules/product/product.entity';
+import { Category } from '@/modules/category/category.entity';
 import { CategoryRepository } from '@/modules/category/category.repository';
 import { PRODUCT_SORT, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
 import { USER_ROLE } from '@/shared/enums/user';
@@ -25,6 +26,7 @@ const mockProductRepo = {
   findOne: jest.fn(),
   save: jest.fn(),
   create: jest.fn(),
+  createQueryBuilder: jest.fn(),
 };
 
 const mockImageRepo = {
@@ -51,6 +53,7 @@ const mockDataSource = {
 const getRepositoryImpl = (entity: unknown): unknown => {
   if (entity === Product) return mockProductRepo;
   if (entity === ProductImage) return mockImageRepo;
+  if (entity === Category) return mockCategoryRepo;
   return {};
 };
 
@@ -114,6 +117,10 @@ describe('ProductService.update', () => {
       async (cb: (manager: { getRepository: (entity: unknown) => unknown }) => Promise<unknown>) =>
         cb({ getRepository: getRepositoryImpl }),
     );
+    mockProductRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    });
 
     const productRepo = new ProductRepository(mockProductRepo as never);
     const imageRepo = new ProductImageRepository(mockImageRepo as never);
@@ -156,10 +163,7 @@ describe('ProductService.update', () => {
     const expectedSlug = 'new-name-xxxx';
     const saved = { ...existing, name: 'New Name', slug: expectedSlug, updatedBy: ADMIN_ID };
 
-    mockProductRepo.findOne
-      .mockResolvedValueOnce(existing)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(saved);
+    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(saved);
     mockProductRepo.save.mockResolvedValue(saved);
 
     const result = await service.update(PRODUCT_ID, input, ADMIN_ID);
@@ -211,7 +215,11 @@ describe('ProductService.update', () => {
     const input: UpdateProductInput = { name: 'Existing Name' };
     const otherProduct = { id: OTHER_PRODUCT_ID, slug: 'existing-name-xxxx' };
 
-    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(otherProduct);
+    mockProductRepo.findOne.mockResolvedValueOnce(existing);
+    mockProductRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(otherProduct),
+    });
 
     await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(ConflictError);
   });

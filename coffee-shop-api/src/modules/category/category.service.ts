@@ -1,3 +1,5 @@
+import type { DataSource } from 'typeorm';
+
 import { BadRequestError, ConflictError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { BaseService } from '@/shared/services/base.service';
@@ -8,9 +10,14 @@ import type { CreateCategoryInput, ListCategoriesQuery, UpdateCategoryInput } fr
 import { Category } from './category.entity';
 import type { CategoryRepository } from './category.repository';
 
+export interface CategoryServiceDeps {
+  categoryRepo: CategoryRepository;
+  dataSource: DataSource;
+}
+
 export class CategoryService extends BaseService<Category, CategoryRepository> {
-  constructor(categoryRepo: CategoryRepository) {
-    super(categoryRepo);
+  constructor({ categoryRepo, dataSource }: CategoryServiceDeps) {
+    super(categoryRepo, dataSource);
   }
 
   findAll(query: ListCategoriesQuery): Promise<PaginatedResponse<Category[]>> {
@@ -62,9 +69,13 @@ export class CategoryService extends BaseService<Category, CategoryRepository> {
 
   async remove(id: string, deletedBy: string): Promise<void> {
     const category = await this.assertById(id, 'Category');
-    category.updatedBy = deletedBy;
-    category.deletedBy = deletedBy;
-    await this.repository.save(category);
-    await this.repository.softDelete(id);
+
+    await this.dataSource.transaction(async (manager) => {
+      const categoryRepo = manager.getRepository(Category);
+      category.updatedBy = deletedBy;
+      category.deletedBy = deletedBy;
+      await categoryRepo.save(category);
+      await categoryRepo.softDelete(category.id);
+    });
   }
 }
