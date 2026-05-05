@@ -1,10 +1,11 @@
 import type { Order } from '@/modules/order/order.entity';
+import { PAYMENT_STATUS } from '@/shared/enums/order';
 
-import type { PaymentStrategy } from './payment';
+import type { PaymentResult, PaymentStrategy } from './payment';
 
 export class CodPaymentStrategy implements PaymentStrategy {
-  async initiate(order: Order): Promise<void> {
-    void order;
-    // COD requires no external payment call
+  async initiate(_order: Order): Promise<PaymentResult> {
+    void _order;
+    return { paymentStatus: PAYMENT_STATUS.UNPAID };
   }
 }

@@ -2,22 +2,32 @@ import type { DataSource } from 'typeorm';
 
 import type { ListOrdersQuery } from '@/modules/order/order.dto';
 import { Order } from '@/modules/order/order.entity';
+import { OrderItem } from '@/modules/order/order-item.entity';
 import {
   assertShippingTransition,
   assertValidOrderStatusTransition,
 } from '@/modules/order/order-state';
 import { OrderService } from '@/modules/order/order.service';
 import { ProductVariant } from '@/modules/product/product-variant.entity';
+import { UserAddress } from '@/modules/user/user-address.entity';
 import {
   ORDER_STATUS,
   PAYMENT_METHOD,
   PAYMENT_STATUS,
   SHIPPING_STATUS,
 } from '@/shared/enums/order';
+import { USER_STATUS } from '@/shared/enums/user';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
+import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
 
 jest.mock('@/config/logger', () => ({
   createModuleLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
+}));
+
+jest.mock('@/shared/strategies/payment/payment.factory', () => ({
+  PaymentStrategyFactory: {
+    create: jest.fn(),
+  },
 }));
 
 const mockOrderRepo = {
@@ -123,6 +133,130 @@ describe('assertShippingTransition', () => {
     [SHIPPING_STATUS.RETURNED, SHIPPING_STATUS.PENDING],
   ])('rejects %s -> %s', (from, to) => {
     expect(() => assertShippingTransition(from, to)).toThrow(BadRequestError);
+  });
+});
+
+describe('OrderService.create', () => {
+  let service: OrderService;
+  const userId = '550e8400-e29b-41d4-a716-446655440000';
+  const variantId = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+  const shippingMethodId = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
+  const newOrderId = '11111111-2222-4333-8444-555555555555';
+
+  const baseInput = {
+    shippingAddress: {
+      firstName: 'Test',
+      lastName: 'User',
+      phoneNumber: '0123456789',
+      addressLine: '123 Nguyen Trai Street District One',
+      city: 'HCM',
+    },
+    shippingMethodId,
+    paymentMethod: PAYMENT_METHOD.STRIPE,
+    items: [{ variantId, quantity: 1 }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = buildService();
+
+    mockUserRepo.findById.mockResolvedValue({
+      id: userId,
+      status: USER_STATUS.ACTIVE,
+    });
+    mockShippingRepo.findActiveById.mockResolvedValue({
+      id: shippingMethodId,
+      name: 'Standard',
+      price: '10000',
+    });
+    mockVariantRepo.findByIds.mockResolvedValue([
+      {
+        id: variantId,
+        sku: 'SKU1',
+        quantity: 10,
+        price: '50000',
+        discountValue: null,
+        discountType: null,
+        name: 'Variant A',
+        product: {
+          id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+          name: 'Coffee',
+          images: [],
+        },
+      },
+    ]);
+
+    (mockDataSource.transaction as jest.Mock).mockImplementation(
+      async (cb: (manager: unknown) => Promise<string>) => {
+        const addressRepo = {
+          count: jest.fn().mockResolvedValue(1),
+        };
+        const manager = {
+          getRepository: jest.fn((entity: unknown) => {
+            if (entity === UserAddress) return addressRepo;
+            if (entity === Order)
+              return {
+                create: jest.fn((data: unknown) => data),
+              };
+            if (entity === OrderItem)
+              return {
+                create: jest.fn((item: unknown) => item),
+              };
+            return {};
+          }),
+          save: jest.fn(async (order: object) => ({
+            ...order,
+            id: newOrderId,
+          })),
+          decrement: jest.fn().mockResolvedValue(undefined),
+        };
+        return cb(manager);
+      },
+    );
+
+    jest.mocked(PaymentStrategyFactory.create).mockReturnValue({
+      initiate: jest.fn().mockResolvedValue({ paymentStatus: PAYMENT_STATUS.PAID }),
+    });
+  });
+
+  it('persists PAID when payment strategy returns PAID', async () => {
+    const fullOrder = {
+      ...makeOrder(ORDER_STATUS.PENDING),
+      id: newOrderId,
+      paymentMethod: PAYMENT_METHOD.STRIPE,
+      paymentStatus: PAYMENT_STATUS.UNPAID,
+    };
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(fullOrder);
+    mockOrderRepo.save.mockImplementation(async (o: Order) => o);
+
+    const result = await service.create(baseInput, userId);
+
+    expect(PaymentStrategyFactory.create).toHaveBeenCalledWith(PAYMENT_METHOD.STRIPE);
+    expect(mockOrderRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: newOrderId, paymentStatus: PAYMENT_STATUS.PAID }),
+    );
+    expect(result.paymentStatus).toBe(PAYMENT_STATUS.PAID);
+  });
+
+  it('does not call repository.save when strategy UNPAID matches order (COD)', async () => {
+    const fullOrder = {
+      ...makeOrder(ORDER_STATUS.PENDING),
+      id: newOrderId,
+      paymentMethod: PAYMENT_METHOD.COD,
+      paymentStatus: PAYMENT_STATUS.UNPAID,
+    };
+    mockOrderRepo.findByIdWithRelations.mockResolvedValue(fullOrder);
+    jest.mocked(PaymentStrategyFactory.create).mockReturnValue({
+      initiate: jest.fn().mockResolvedValue({ paymentStatus: PAYMENT_STATUS.UNPAID }),
+    });
+
+    const result = await service.create(
+      { ...baseInput, paymentMethod: PAYMENT_METHOD.COD },
+      userId,
+    );
+
+    expect(mockOrderRepo.save).not.toHaveBeenCalled();
+    expect(result.paymentStatus).toBe(PAYMENT_STATUS.UNPAID);
   });
 });
 

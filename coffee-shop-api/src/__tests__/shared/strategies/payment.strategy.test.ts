@@ -1,10 +1,8 @@
-import AppDataSource from '@/config/database';
 import { Order } from '@/modules/order/order.entity';
 import { PAYMENT_STATUS } from '@/shared/enums/order';
+import { CodPaymentStrategy } from '@/shared/strategies/payment/cod';
 import { PaypalPaymentStrategy } from '@/shared/strategies/payment/paypal';
 import { StripePaymentStrategy } from '@/shared/strategies/payment/stripe';
-
-const mockOrderRepo = { save: jest.fn() };
 
 const makeOrder = (paymentStatus: PAYMENT_STATUS = PAYMENT_STATUS.UNPAID): Order =>
   ({
@@ -13,34 +11,29 @@ const makeOrder = (paymentStatus: PAYMENT_STATUS = PAYMENT_STATUS.UNPAID): Order
   }) as Order;
 
 describe('Payment strategies', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest
-      .spyOn(AppDataSource, 'getRepository')
-      .mockImplementation((entity: unknown) =>
-        entity === Order ? (mockOrderRepo as never) : ({} as never),
-      );
-  });
-
-  it('StripePaymentStrategy sets paymentStatus to PAID and saves order', async () => {
+  it('StripePaymentStrategy returns PAID without mutating order', async () => {
     const order = makeOrder();
 
-    await new StripePaymentStrategy().initiate(order);
+    const result = await new StripePaymentStrategy().initiate(order);
 
-    expect(order.paymentStatus).toBe(PAYMENT_STATUS.PAID);
-    expect(mockOrderRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentStatus: PAYMENT_STATUS.PAID }),
-    );
+    expect(result.paymentStatus).toBe(PAYMENT_STATUS.PAID);
+    expect(order.paymentStatus).toBe(PAYMENT_STATUS.UNPAID);
   });
 
-  it('PaypalPaymentStrategy sets paymentStatus to PAID and saves order', async () => {
+  it('PaypalPaymentStrategy returns PAID without mutating order', async () => {
     const order = makeOrder();
 
-    await new PaypalPaymentStrategy().initiate(order);
+    const result = await new PaypalPaymentStrategy().initiate(order);
 
-    expect(order.paymentStatus).toBe(PAYMENT_STATUS.PAID);
-    expect(mockOrderRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentStatus: PAYMENT_STATUS.PAID }),
-    );
+    expect(result.paymentStatus).toBe(PAYMENT_STATUS.PAID);
+    expect(order.paymentStatus).toBe(PAYMENT_STATUS.UNPAID);
+  });
+
+  it('CodPaymentStrategy returns UNPAID', async () => {
+    const order = makeOrder();
+
+    const result = await new CodPaymentStrategy().initiate(order);
+
+    expect(result.paymentStatus).toBe(PAYMENT_STATUS.UNPAID);
   });
 });
