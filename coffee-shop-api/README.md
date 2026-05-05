@@ -35,171 +35,246 @@ Practice API for a coffee-shop style domain (users, categories, products, orders
 - Design a relational database schema.
 - Produce a backend architecture document and API design.
 - Use **[Clerk](https://clerk.com/docs/references/express/overview)** for authentication in Node.js.
-- Implement a **RESTful API** with [Express.js](https://expressjs.com/) and [TypeScript](https://www.typescriptlang.org/docs/).
+- Implement a RESTful API with **[Express.js](https://expressjs.com/)** and **[TypeScript](https://www.typescriptlang.org/docs/)**.
 - Configure database connectivity and ORM/Query Builder interactions.
-- Handle errors with **centralized error handling**.
+- Handle errors with centralized error handling.
 - Generate API documentation with **[Swagger](https://swagger.io/docs/)**.
 - Validate request and response data (e.g. **[Zod](https://zod.dev/)**).
-- Write **unit and integration tests** with **[Jest](https://jestjs.io/docs/getting-started)** and **[Supertest](https://github.com/ladjs/supertest#readme)**.
+- Write unit and integration tests with **[Jest](https://jestjs.io/docs/getting-started)** and **[Supertest](https://github.com/ladjs/supertest#readme)**.
 
-## Features
+## FEATURES
 
-- User authentication & JWT-based access
-- User can place orders
-- Admin can CRUD operations on Products
-- Admin can edit order status
+### Authentication & Users
+
+- JWT-based authentication via Clerk
+- Clerk webhook integration (user sync via Svix)
+
+### Catalog
+
+- Admin CRUD on categories
+- Admin CRUD on products
+- Product filtering by status, category, roast level, and price
+
+### Orders
+
+- Authenticated users can place orders
+- Multiple payment methods: Stripe, PayPal, COD
+- Admin update order status
+- Admin delete orders (pending/cancelled only)
+
+### Developer Experience
+
+- API documentation with Swagger UI
 - Centralized error handling
-- Request/response validation
+- Request/response validation with Zod
+- Structured logging with Winston
 
-## Entity Relationship Diagram (ERD)
+## CODE STRUCTURE
+
+```
+src/
+├── app.ts                        # Express app setup & middleware registration
+├── container.ts                  # Dependency injection wiring
+├── config/                       # App-wide configuration
+│   ├── clerk.ts
+│   ├── database.ts
+│   ├── env.ts
+│   ├── logger.ts
+│   └── swagger.ts
+├── middlewares/                  # Express middlewares
+│   ├── auth.ts                   # requireAuthenticated, requireAdmin
+│   ├── error.ts                  # Centralized error handler
+│   └── http-logger.ts
+├── migrations/                   # TypeORM migration files
+├── modules/                      # Feature modules (by domain)
+│   ├── category/
+│   ├── order/
+│   ├── product/
+│   ├── user/
+│   └── webhooks/clerk/           # Clerk webhook handler
+├── routes/                       # Route registration
+│   └── v1/                       # API version 1
+│       ├── category.route.ts
+│       ├── order.route.ts
+│       ├── product.route.ts
+│       ├── swagger.route.ts
+│       ├── user.route.ts
+│       └── webhook.route.ts
+└── shared/                       # Cross-module utilities
+    ├── constants/
+    ├── entities/                 # BaseEntity, AuditableEntity
+    ├── enums/
+    ├── errors/                   # AppError, ErrorCode
+    ├── repositories/             # Base repository
+    ├── services/                 # Base service
+    ├── strategies/
+    │   ├── discount/             # DiscountStrategyFactory
+    │   └── payment/              # PaymentStrategyFactory (Stripe, PayPal, COD)
+    ├── types/
+    └── utils/
+```
+
+Each module follows the same file structure:
+
+| File                 | Purpose                         |
+| :------------------- | :------------------------------ |
+| `*.entity.ts`        | TypeORM entity definition       |
+| `*.dto.ts`           | Zod schemas & inferred types    |
+| `*.mapper.ts`        | Entity → response DTO transform |
+| `*.repository.ts`    | TypeORM repository              |
+| `*.service.ts`       | Business logic                  |
+| `*.v1.controller.ts` | HTTP request handlers           |
+| `*.swagger.ts`       | Swagger/OpenAPI annotations     |
+
+## ENTITY RELATIONSHIP DIAGRAM(ERD)
 
 ```mermaid
 erDiagram
     USER {
-        uuid id PK
-        uuid clerk_id
-        uuid updated_by FK
-        string email
-        string role "ADMIN | USER"
-        string first_name
-        string last_name
-        string phone_number
-        string avatar_url
-        string status "ACTIVE | INACTIVE"
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        clerk_id string
+        updated_by uuid FK
+        email string
+        role string "ADMIN | USER"
+        first_name string
+        last_name string
+        phone_number string
+        avatar_url string
+        status string "ACTIVE | INACTIVE"
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     USER_ADDRESS {
-        uuid id PK
-        uuid user_id FK
-        string first_name
-        string last_name
-        string phone_number
-        string address_line
-        string city
-        string district
-        string ward
-        string postal_code
-        boolean is_default
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        user_id uuid FK
+        first_name string
+        last_name string
+        phone_number string
+        address_line string
+        city string
+        district string
+        ward string
+        postal_code string
+        is_default boolean
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     CATEGORY {
-        uuid id PK
-        uuid created_by FK
-        uuid updated_by FK
-        uuid deleted_by FK
-        string name
-        string slug
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        created_by uuid FK
+        updated_by uuid FK
+        deleted_by uuid FK
+        name string
+        slug string
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     PRODUCT {
-        uuid id PK
-        uuid category_id FK
-        uuid created_by FK
-        uuid updated_by FK
-        uuid deleted_by FK
-        string name
-        string slug
-        string description
-        string roast_level "LIGHT | MEDIUM | DARK"
-        boolean is_organic
-        boolean is_fair_trade
-        string status "DRAFT | ACTIVE | INACTIVE | ARCHIVED"
-        string tasting_notes
-        string origin
-        string processing_method
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        category_id uuid FK
+        created_by uuid FK
+        updated_by uuid FK
+        deleted_by uuid FK
+        name string
+        slug string
+        description string
+        roast_level string "LIGHT | MEDIUM | DARK"
+        is_organic boolean
+        is_fair_trade boolean
+        status string "DRAFT | ACTIVE | INACTIVE | ARCHIVED"
+        tasting_notes string
+        origin string
+        processing_method string
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     PRODUCT_IMAGE {
-        uuid id PK
-        uuid product_id FK
-        string url
-        boolean is_primary
-        int sort_order
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        product_id uuid FK
+        url string
+        is_primary boolean
+        sort_order int
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     PRODUCT_VARIANT {
-        uuid id PK
-        uuid product_id FK
-        uuid created_by FK
-        uuid updated_by FK
-        uuid deleted_by FK
-        string sku
-        number weight
-        string unit
-        string name
-        decimal price
-        string discount_type "PERCENT | FIXED | null"
-        decimal discount_value
-        int quantity
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        product_id uuid FK
+        created_by uuid FK
+        updated_by uuid FK
+        deleted_by uuid FK
+        sku string
+        weight number
+        unit string
+        name string
+        price number
+        discount_type string "PERCENT | FIXED"
+        discount_value number
+        quantity int
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     SHIPPING_METHOD {
-        uuid id PK
-        uuid created_by FK
-        uuid updated_by FK
-        uuid deleted_by FK
-        string name
-        string description
-        decimal price
-        string status "ACTIVE | INACTIVE"
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        created_by uuid FK
+        updated_by uuid FK
+        deleted_by uuid FK
+        name string
+        description string
+        price number
+        status string "ACTIVE | INACTIVE"
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     ORDER {
-        uuid id PK
-        uuid user_id FK
-        uuid updated_by FK
-        uuid shipping_method_id FK
-        string order_number
-        string status "PENDING | CONFIRMED | COMPLETED | CANCELLED"
-        string shipping_status "PENDING | SHIPPING | DELIVERED | RETURNED"
-        string payment_status "UNPAID | PENDING | PAID | FAILED"
-        string payment_method "STRIPE | PAYPAL | COD"
-        decimal shipping_fee "snapshot"
-        string shipping_method_name "snapshot"
-        decimal sub_total
-        decimal tax
-        decimal total_amount
-        json address_snapshot "snapshot"
-        string note
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
+        id uuid PK
+        user_id uuid FK
+        updated_by uuid FK
+        shipping_method_id uuid FK
+        order_number string
+        status string "PENDING | CONFIRMED | COMPLETED | CANCELLED"
+        shipping_status string "PENDING | SHIPPING | DELIVERED | RETURNED"
+        payment_status string "UNPAID | PENDING | PAID | FAILED"
+        payment_method string "STRIPE | PAYPAL | COD"
+        shipping_fee number
+        shipping_method_name string
+        sub_total number
+        tax number
+        total_amount number
+        address_snapshot json
+        note string
+        created_at timestamp
+        updated_at timestamp
+        deleted_at timestamp
     }
 
     ORDER_ITEM {
-        uuid id PK
-        uuid order_id FK
-        uuid product_id FK
-        uuid variant_id FK
-        string product_name "snapshot"
-        string product_image "snapshot"
-        string variant_name "snapshot"
-        decimal unit_price "snapshot"
-        decimal discount_amount
-        decimal final_price
-        int quantity
-        decimal sub_total
+        id uuid PK
+        order_id uuid FK
+        product_id uuid FK
+        variant_id uuid FK
+        product_name string
+        product_image string
+        variant_name string
+        unit_price number
+        discount_amount number
+        final_price number
+        quantity int
+        sub_total number
     }
 
     USER ||--o{ USER_ADDRESS : "has"
@@ -217,8 +292,7 @@ erDiagram
 
 ## API ENDPOINTS
 
-> Base path: `/api/v1`
-> API docs `/api/api-docs`.
+> Base path: `/api/v1` - API docs `/api/api-docs`.
 >
 > **Auth:** 🔓 Public · 🔒 Authenticated (Clerk JWT) · 👑 Admin
 
@@ -268,16 +342,34 @@ erDiagram
 
 ## GETTING STARTED
 
-| Command                                                                 | Action                 |
-| :---------------------------------------------------------------------- | :--------------------- |
-| `git clone git@gitlab.asoft-python.com:tien.nguyen/nodejs-training.git` | Clone repository       |
-| `cd nodejs-training/coffee-shop-api`                                    | Open coffee-shop-api   |
-| `pnpm install`                                                          | Install dependencies   |
-| `pnpm dev`                                                              | Run dev server (watch) |
-| `pnpm build`                                                            | Compile to `dist/`     |
-| `pnpm start`                                                            | Run compiled app       |
-| `pnpm test`                                                             | Run tests              |
-| `pnpm test:coverage`                                                    | Tests with coverage    |
-| `pnpm lint` / `pnpm format`                                             | Lint and format        |
+| Command                                                                                         | Action                    |
+| :---------------------------------------------------------------------------------------------- | :------------------------ |
+| `git clone -b feat/coffee-shop-api git@gitlab.asoft-python.com:tien.nguyen/nodejs-training.git` | Clone repository          |
+| `cd nodejs-training/coffee-shop-api`                                                            | Open coffee-shop-api      |
+| `pnpm install`                                                                                  | Install dependencies      |
+| `pnpm migration:run`                                                                            | Run pending DB migrations |
+| `pnpm dev`                                                                                      | Run dev server (watch)    |
+| `pnpm build`                                                                                    | Compile to `dist/`        |
+| `pnpm start`                                                                                    | Run compiled app          |
+| `pnpm test`                                                                                     | Run tests                 |
+| `pnpm test:coverage`                                                                            | Tests with coverage       |
+
+### Local Webhook (ngrok)
+
+Clerk sends webhook events (user created, updated, deleted) to your server. For local development, expose your server with [ngrok](https://ngrok.com/docs):
+
+```bash
+# Start your dev server first
+pnpm dev
+
+# In a separate terminal, expose port 3000
+ngrok http 3000
+```
+
+Copy the `https://<id>.ngrok-free.app` URL from ngrok output, then in the [Clerk Dashboard](https://dashboard.clerk.com) → **Webhooks** → create/update the endpoint URL to:
+
+```
+https://<id>.ngrok-free.app/api/v1/webhooks/clerk
+```
 
 For Clerk, database, and other secrets, use `.env` (see `.env.example`). For environment variable details, email **tien.nguyen@asnet.com.vn**.
