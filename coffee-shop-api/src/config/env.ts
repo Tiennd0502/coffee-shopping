@@ -5,6 +5,8 @@ import {
   DEFAULT_DB_PORT,
   DEFAULT_NODE_ENV,
   DEFAULT_PORT,
+  DEFAULT_RATE_LIMIT_MAX_REQUESTS,
+  DEFAULT_RATE_LIMIT_WINDOW_MS,
   ENV_ERRORS,
   MIN_ENV_LENGTH,
   NODE_ENV_VALUES,
@@ -23,6 +25,13 @@ const envSchema = z.object({
   CLERK_WEBHOOK_SECRET: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.CLERK_WEBHOOK_SECRET_REQUIRED),
   CLERK_SECRET_KEY: z.string().min(MIN_ENV_LENGTH, ENV_ERRORS.CLERK_SECRET_KEY_REQUIRED),
   CORS_ORIGIN: z.string().min(MIN_ENV_LENGTH),
+
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(DEFAULT_RATE_LIMIT_WINDOW_MS),
+  RATE_LIMIT_MAX_REQUESTS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_RATE_LIMIT_MAX_REQUESTS),
 });
 
 type Env = z.infer<typeof envSchema>;

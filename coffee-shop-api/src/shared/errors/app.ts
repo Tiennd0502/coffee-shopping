@@ -94,3 +94,11 @@ export class ConflictError extends AppError {
     });
   }
 }
+
+export class TooManyRequestsError extends AppError {
+  constructor() {
+    super(ERROR_MESSAGES.TOO_MANY_REQUESTS, StatusCodes.TOO_MANY_REQUESTS, {
+      code: ErrorCode.TOO_MANY_REQUESTS,
+    });
+  }
+}
