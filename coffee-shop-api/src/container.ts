@@ -42,8 +42,15 @@ const shippingMethodRepository = new ShippingMethodRepository(
   AppDataSource.getRepository(ShippingMethod),
 );
 
-export const userService = new UserService(userRepository, userAddressRepository);
-export const categoryService = new CategoryService(categoryRepository);
+export const userService = new UserService({
+  userRepo: userRepository,
+  addressRepo: userAddressRepository,
+  dataSource: AppDataSource,
+});
+export const categoryService = new CategoryService({
+  categoryRepo: categoryRepository,
+  dataSource: AppDataSource,
+});
 export const productService = new ProductService({
   productRepo: productRepository,
   imageRepo: productImageRepository,
@@ -58,6 +65,7 @@ export const orderService = new OrderService({
   variantRepo: productVariantRepository,
   dataSource: AppDataSource,
 });
+
 export const userController = new UserController(userService);
 export const categoryController = new CategoryController(categoryService);
 export const productController = new ProductController(productService);

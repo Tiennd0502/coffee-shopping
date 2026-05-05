@@ -209,6 +209,7 @@ describe('OrderService.create', () => {
             id: newOrderId,
           })),
           decrement: jest.fn().mockResolvedValue(undefined),
+          update: jest.fn().mockResolvedValue(undefined),
         };
         return cb(manager);
       },
@@ -224,17 +225,14 @@ describe('OrderService.create', () => {
       ...makeOrder(ORDER_STATUS.PENDING),
       id: newOrderId,
       paymentMethod: PAYMENT_METHOD.STRIPE,
-      paymentStatus: PAYMENT_STATUS.UNPAID,
+      paymentStatus: PAYMENT_STATUS.PAID,
     };
     mockOrderRepo.findByIdWithRelations.mockResolvedValue(fullOrder);
-    mockOrderRepo.save.mockImplementation(async (o: Order) => o);
 
     const result = await service.create(baseInput, userId);
 
     expect(PaymentStrategyFactory.create).toHaveBeenCalledWith(PAYMENT_METHOD.STRIPE);
-    expect(mockOrderRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: newOrderId, paymentStatus: PAYMENT_STATUS.PAID }),
-    );
+    expect(mockOrderRepo.save).not.toHaveBeenCalled();
     expect(result.paymentStatus).toBe(PAYMENT_STATUS.PAID);
   });
 

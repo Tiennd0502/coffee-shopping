@@ -1,6 +1,7 @@
 import type { DataSource, EntityManager } from 'typeorm';
 
 import { createModuleLogger } from '@/config/logger';
+import { Category } from '@/modules/category/category.entity';
 import type { CategoryRepository } from '@/modules/category/category.repository';
 import { PRODUCT_STATUS } from '@/shared/enums/product';
 import { USER_ROLE } from '@/shared/enums/user';
@@ -42,14 +43,12 @@ export class ProductService extends BaseService<Product, ProductRepository> {
   private readonly imageRepo: ProductImageRepository;
   private readonly variantRepo: ProductVariantRepository;
   private readonly categoryRepo: CategoryRepository;
-  private readonly dataSource: DataSource;
 
   constructor(dependencies: ProductServiceDeps) {
-    super(dependencies.productRepo);
+    super(dependencies.productRepo, dependencies.dataSource);
     this.imageRepo = dependencies.imageRepo;
     this.variantRepo = dependencies.variantRepo;
     this.categoryRepo = dependencies.categoryRepo;
-    this.dataSource = dependencies.dataSource;
   }
 
   findAll(
@@ -173,7 +172,7 @@ export class ProductService extends BaseService<Product, ProductRepository> {
       const product = await manager.getRepository(Product).findOne({ where: { id } });
       if (!product) throw new NotFoundError('Product');
 
-      await this.applyScalarUpdates(product, input);
+      await this.applyScalarUpdates(manager, product, input);
 
       product.updatedBy = updatedBy;
       await manager.getRepository(Product).save(product);
@@ -289,17 +288,27 @@ export class ProductService extends BaseService<Product, ProductRepository> {
     if (patch.sortOrder !== undefined) target.sortOrder = patch.sortOrder;
   }
 
-  private async applyScalarUpdates(product: Product, input: UpdateProductInput): Promise<void> {
+  private async applyScalarUpdates(
+    manager: EntityManager,
+    product: Product,
+    input: UpdateProductInput,
+  ): Promise<void> {
     if (input.categoryId !== undefined && input.categoryId !== product.categoryId) {
-      const category = await this.categoryRepo.findById(input.categoryId);
+      const category = await manager
+        .getRepository(Category)
+        .findOne({ where: { id: input.categoryId } });
       if (!category) throw new NotFoundError('Category');
       product.categoryId = input.categoryId;
     }
 
     if (input.name !== undefined && input.name !== product.name) {
       const slug = slugFrom(input.name);
-      const slugConflict = await this.repository.findBySlug(slug);
-      if (slugConflict && slugConflict.id !== product.id) {
+      const slugConflict = await manager
+        .getRepository(Product)
+        .createQueryBuilder('p')
+        .where('p.slug = :slug AND p.id != :id', { slug, id: product.id })
+        .getOne();
+      if (slugConflict) {
         throw new ConflictError(ERROR_MESSAGES.PRODUCT.SLUG_EXISTS);
       }
       product.name = input.name;

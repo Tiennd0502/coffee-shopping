@@ -60,14 +60,12 @@ export class OrderService extends BaseService<Order, OrderRepository> {
   private readonly userRepo: UserRepository;
   private readonly shippingRepo: ShippingMethodRepository;
   private readonly variantRepo: ProductVariantRepository;
-  private readonly dataSource: DataSource;
 
   constructor(dependencies: OrderServiceDeps) {
-    super(dependencies.orderRepo);
+    super(dependencies.orderRepo, dependencies.dataSource);
     this.userRepo = dependencies.userRepo;
     this.shippingRepo = dependencies.shippingRepo;
     this.variantRepo = dependencies.variantRepo;
-    this.dataSource = dependencies.dataSource;
   }
 
   async create(input: CreateOrderInput, userId: string): Promise<Order> {
@@ -150,14 +148,6 @@ export class OrderService extends BaseService<Order, OrderRepository> {
     const fullOrder = await this.repository.findByIdWithRelations(savedOrderId, ['items']);
     if (!fullOrder) {
       throw new NotFoundError('Order');
-    }
-
-    const { paymentStatus } = await PaymentStrategyFactory.create(input.paymentMethod).initiate(
-      fullOrder,
-    );
-    if (paymentStatus !== fullOrder.paymentStatus) {
-      fullOrder.paymentStatus = paymentStatus;
-      await this.repository.save(fullOrder);
     }
 
     log.info('Order placed', {
@@ -333,6 +323,16 @@ export class OrderService extends BaseService<Order, OrderRepository> {
 
       for (const item of params.input.items) {
         await manager.decrement(ProductVariant, { id: item.variantId }, 'quantity', item.quantity);
+      }
+
+      const paymentResult = await PaymentStrategyFactory.create(
+        params.input.paymentMethod,
+      ).initiate(saved);
+      if (saved.paymentStatus !== paymentResult.paymentStatus) {
+        await manager.update(Order, saved.id, {
+          paymentStatus: paymentResult.paymentStatus,
+        });
+        saved.paymentStatus = paymentResult.paymentStatus;
       }
 
       return saved.id;
