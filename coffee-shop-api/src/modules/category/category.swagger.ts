@@ -3,6 +3,8 @@ import { ReasonPhrases, StatusCodes } from 'http-status-codes';
 import {
   badRequest,
   bearerAuth,
+  dataResponse,
+  paginatedResponse,
   registry,
   unauthorized,
   notFound,
@@ -30,7 +32,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: CategoryResponseSchema.array() } },
+      content: { 'application/json': { schema: paginatedResponse(CategoryResponseSchema) } },
     },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
   },
@@ -46,7 +48,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: CategoryResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(CategoryResponseSchema) } },
     },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
     [StatusCodes.NOT_FOUND]: notFound([
@@ -74,7 +76,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.CREATED]: {
       description: ReasonPhrases.CREATED,
-      content: { 'application/json': { schema: CategoryResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(CategoryResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -112,7 +114,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: CategoryResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(CategoryResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [

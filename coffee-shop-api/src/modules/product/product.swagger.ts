@@ -4,6 +4,8 @@ import { z } from 'zod';
 import {
   badRequest,
   bearerAuth,
+  dataResponse,
+  paginatedResponse,
   registry,
   unauthorized,
   notFound,
@@ -49,7 +51,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: ProductResponseSchema.array() } },
+      content: { 'application/json': { schema: paginatedResponse(ProductResponseSchema) } },
     },
   },
 });
@@ -63,7 +65,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: ProductResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(ProductResponseSchema) } },
     },
     [StatusCodes.NOT_FOUND]: notFound([
       {
@@ -90,7 +92,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.CREATED]: {
       description: ReasonPhrases.CREATED,
-      content: { 'application/json': { schema: ProductResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(ProductResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -128,7 +130,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: ProductResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(ProductResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [

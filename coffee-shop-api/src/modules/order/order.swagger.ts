@@ -1,6 +1,14 @@
 import { ReasonPhrases, StatusCodes } from 'http-status-codes';
 
-import { badRequest, bearerAuth, registry, unauthorized, notFound } from '@/config/swagger';
+import {
+  badRequest,
+  bearerAuth,
+  dataResponse,
+  paginatedResponse,
+  registry,
+  unauthorized,
+  notFound,
+} from '@/config/swagger';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { ORDER_STATUS, SHIPPING_STATUS } from '@/shared/enums/order';
@@ -30,7 +38,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: OrderResponseSchema.array() } },
+      content: { 'application/json': { schema: paginatedResponse(OrderResponseSchema) } },
     },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
   },
@@ -46,7 +54,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: OrderResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(OrderResponseSchema) } },
     },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
     [StatusCodes.NOT_FOUND]: notFound([
@@ -74,7 +82,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.CREATED]: {
       description: ReasonPhrases.CREATED,
-      content: { 'application/json': { schema: OrderResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(OrderResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -112,7 +120,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: OrderResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(OrderResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -154,7 +162,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: OrderResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(OrderResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [

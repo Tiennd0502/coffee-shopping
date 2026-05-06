@@ -3,6 +3,8 @@ import { ReasonPhrases, StatusCodes } from 'http-status-codes';
 import {
   badRequest,
   bearerAuth,
+  dataResponse,
+  paginatedResponse,
   registry,
   unauthorized,
   notFound,
@@ -14,6 +16,7 @@ import { FIELD_KEYS } from './user.field';
 
 import {
   CreateUserSchema,
+  ListUsersQuerySchema,
   UpdateUserSchema,
   UserMeResponseSchema,
   UserResponseSchema,
@@ -36,7 +39,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: 'Authenticated user',
-      content: { 'application/json': { schema: UserMeResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(UserMeResponseSchema) } },
     },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
   },
@@ -48,10 +51,11 @@ registry.registerPath({
   tags: [USER_TAG],
   summary: 'List all users',
   security: [bearerAuth],
+  request: { query: ListUsersQuerySchema },
   responses: {
     [StatusCodes.OK]: {
-      description: 'Array of users',
-      content: { 'application/json': { schema: UserResponseSchema.array() } },
+      description: ReasonPhrases.OK,
+      content: { 'application/json': { schema: paginatedResponse(UserResponseSchema) } },
     },
     [StatusCodes.UNAUTHORIZED]: unauthorized(),
   },
@@ -67,7 +71,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: UserResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(UserResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -104,7 +108,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.CREATED]: {
       description: ReasonPhrases.CREATED,
-      content: { 'application/json': { schema: UserResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(UserResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -130,7 +134,7 @@ registry.registerPath({
   method: 'patch',
   path: '/users/{id}',
   tags: [USER_TAG],
-  summary: 'Update user',
+  summary: 'Update user (admin)',
   security: [bearerAuth],
   request: {
     params: userRecordIdParamSchema,
@@ -142,7 +146,7 @@ registry.registerPath({
   responses: {
     [StatusCodes.OK]: {
       description: ReasonPhrases.OK,
-      content: { 'application/json': { schema: UserResponseSchema } },
+      content: { 'application/json': { schema: dataResponse(UserResponseSchema) } },
     },
     [StatusCodes.BAD_REQUEST]: badRequest({
       errors: [
@@ -175,7 +179,7 @@ registry.registerPath({
   method: 'delete',
   path: '/users/{id}',
   tags: [USER_TAG],
-  summary: 'Soft-delete user',
+  summary: 'Delete user (admin)',
   security: [bearerAuth],
   request: { params: userRecordIdParamSchema },
   responses: {

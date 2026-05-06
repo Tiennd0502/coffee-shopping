@@ -22,6 +22,8 @@ const customColors: Record<keyof typeof customLevels, string> = {
 
 addColors(customColors);
 
+const SKIP_META_KEYS = new Set(['timestamp', 'level', 'message', 'service', 'requestId']);
+
 const injectRequestContext = format((info) => {
   const store = requestAsyncContext.getStore();
   if (store) {
@@ -38,7 +40,11 @@ const devFormat = format.combine(
     const requestId = typeof info.requestId === 'string' ? `[${info.requestId}] ` : '';
     const service = typeof info.service === 'string' ? `[${info.service}] ` : '';
     const message = typeof info.message === 'string' ? info.message : String(info.message);
-    return `${String(info.timestamp)} ${requestId}${service}${info.level}: ${message}`;
+    const meta = JSON.stringify(info, (k, v) =>
+      k === '' || !SKIP_META_KEYS.has(k) ? v : undefined,
+    );
+    const metaStr = meta !== '{}' ? ` ${meta}` : '';
+    return `${String(info.timestamp)} ${requestId}${service}${info.level}: ${message}${metaStr}`;
   }),
 );
 
