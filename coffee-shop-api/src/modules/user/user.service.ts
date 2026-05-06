@@ -126,10 +126,20 @@ export class UserService extends BaseService<User, UserRepository> {
     user.role = roleChanged ? input.role! : user.role;
 
     if (roleChanged && user.clerkId) {
-      await clerkClient.users.updateUser(user.clerkId, {
-        publicMetadata: { role: input.role },
-      });
-      log.info('Synced role to Clerk', { userId: user.id, role: input.role });
+      try {
+        await clerkClient.users.updateUser(user.clerkId, {
+          publicMetadata: { role: input.role },
+        });
+        log.info('Synced role to Clerk', { userId: user.id, role: input.role });
+      } catch (err) {
+        log.error('Failed to sync role to Clerk', {
+          userId: user.id,
+          clerkId: user.clerkId,
+          role: input.role,
+          err,
+        });
+        throw err;
+      }
     }
 
     const saved = await this.repository.save(user);
@@ -138,9 +148,25 @@ export class UserService extends BaseService<User, UserRepository> {
 
   async remove(id: string): Promise<void> {
     const user = await this.assertById(id, 'User');
+
+    if (user.clerkId) {
+      try {
+        await clerkClient.users.deleteUser(user.clerkId);
+        log.info('User deleted in Clerk', { userId: user.id, clerkId: user.clerkId });
+      } catch (err) {
+        log.error('Failed to delete user in Clerk', {
+          userId: user.id,
+          clerkId: user.clerkId,
+          err,
+        });
+        throw err;
+      }
+    }
+
     await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       user.email = `deleted_${user.id}_${user.email}`;
+      user.status = USER_STATUS.INACTIVE;
       await userRepo.save(user);
       await userRepo.softDelete(id);
     });
