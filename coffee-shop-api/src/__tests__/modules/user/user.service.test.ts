@@ -5,12 +5,14 @@ import { UserService } from '@/modules/user/user.service';
 import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
 import { ConflictError, NotFoundError } from '@/shared/errors/app';
 
+const mockClerkDeleteUser = jest.fn();
 const mockClerkUpdateUser = jest.fn();
 
 jest.mock('@/config/clerk', () => ({
   clerkClient: {
     users: {
       updateUser: (...args: unknown[]) => mockClerkUpdateUser(...args),
+      deleteUser: (...args: unknown[]) => mockClerkDeleteUser(...args),
     },
   },
 }));
@@ -178,5 +180,127 @@ describe('UserService.update', () => {
     await service.update(USER_ID, { role: USER_ROLE.USER });
 
     expect(mockClerkUpdateUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('UserService.remove', () => {
+  let service: UserService;
+  const mockTransaction = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const userRepo = new UserRepository(mockUserRepo as never);
+    const addressRepo = new UserAddressRepository(mockAddressRepo as never);
+    service = new UserService({
+      userRepo,
+      addressRepo,
+      dataSource: { transaction: mockTransaction } as never,
+    });
+    mockClerkDeleteUser.mockResolvedValue(undefined);
+  });
+
+  it('calls clerkClient.users.deleteUser then anonymizes and soft-deletes in DB when user has clerkId', async () => {
+    const user = makeUser({ clerkId: CLERK_ID });
+    mockUserRepo.findOne.mockResolvedValueOnce(user);
+    const mockSave = jest.fn().mockResolvedValue(user);
+    const mockSoftDelete = jest.fn().mockResolvedValue(undefined);
+    mockTransaction.mockImplementation(async (cb: (manager: unknown) => Promise<void>) => {
+      await cb({
+        getRepository: () => ({ save: mockSave, softDelete: mockSoftDelete }),
+      });
+    });
+
+    await service.remove(USER_ID);
+
+    expect(mockClerkDeleteUser).toHaveBeenCalledWith(CLERK_ID);
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: `deleted_${USER_ID}_jane@example.com`,
+        status: USER_STATUS.INACTIVE,
+      }),
+    );
+    expect(mockSoftDelete).toHaveBeenCalledWith(USER_ID);
+    expect(mockUserRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('does NOT run DB transaction when Clerk deleteUser throws', async () => {
+    const user = makeUser({ clerkId: CLERK_ID });
+    mockUserRepo.findOne.mockResolvedValueOnce(user);
+    mockClerkDeleteUser.mockRejectedValueOnce(new Error('Clerk unavailable'));
+
+    await expect(service.remove(USER_ID)).rejects.toThrow('Clerk unavailable');
+
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockUserRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call Clerk and runs direct DB deletion when user has no clerkId', async () => {
+    const user = makeUser({ clerkId: null });
+    mockUserRepo.findOne.mockResolvedValueOnce(user);
+    mockTransaction.mockImplementation(async (cb: (manager: unknown) => Promise<void>) => {
+      const fakeManager = {
+        getRepository: () => ({
+          save: jest.fn().mockResolvedValue(user),
+          softDelete: jest.fn().mockResolvedValue(undefined),
+        }),
+      };
+      await cb(fakeManager);
+    });
+
+    await service.remove(USER_ID);
+
+    expect(mockClerkDeleteUser).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws NotFoundError when user does not exist', async () => {
+    mockUserRepo.findOne.mockResolvedValueOnce(null);
+
+    await expect(service.remove(USER_ID)).rejects.toBeInstanceOf(NotFoundError);
+    expect(mockClerkDeleteUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('UserService.syncClerkUserDeleted', () => {
+  let service: UserService;
+  const mockTransaction = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const userRepo = new UserRepository(mockUserRepo as never);
+    const addressRepo = new UserAddressRepository(mockAddressRepo as never);
+    service = new UserService({
+      userRepo,
+      addressRepo,
+      dataSource: { transaction: mockTransaction } as never,
+    });
+  });
+
+  it('anonymizes email, sets INACTIVE, and softDeletes the user', async () => {
+    const user = makeUser();
+    const mockSave = jest.fn().mockResolvedValue(undefined);
+    const mockSoftDelete = jest.fn().mockResolvedValue(undefined);
+    mockUserRepo.findOne.mockResolvedValueOnce(user);
+    mockTransaction.mockImplementation(async (cb: (manager: unknown) => Promise<void>) => {
+      await cb({ getRepository: () => ({ save: mockSave, softDelete: mockSoftDelete }) });
+    });
+
+    await service.syncClerkUserDeleted(CLERK_ID);
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: `deleted_${USER_ID}_jane@example.com`,
+        status: USER_STATUS.INACTIVE,
+      }),
+    );
+    expect(mockSoftDelete).toHaveBeenCalledWith(USER_ID);
+  });
+
+  it('skips silently when user is not found by clerkId', async () => {
+    mockUserRepo.findOne.mockResolvedValueOnce(null);
+
+    await expect(service.syncClerkUserDeleted('unknown_clerk')).resolves.toBeUndefined();
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
