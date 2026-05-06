@@ -1,21 +1,31 @@
 import { In } from 'typeorm';
 
-import type { ListProductsQuery, UpdateProductInput } from '@/modules/product/product.dto';
+import type {
+  CreateProductInput,
+  ListProductsQuery,
+  UpdateProductInput,
+} from '@/modules/product/product.dto';
 import { ProductImage } from '@/modules/product/product-image.entity';
 import { ProductImageRepository } from '@/modules/product/product-image.repository';
 import { ProductRepository } from '@/modules/product/product.repository';
 import { ProductService } from '@/modules/product/product.service';
+import { ProductVariant } from '@/modules/product/product-variant.entity';
 import { ProductVariantRepository } from '@/modules/product/product-variant.repository';
 import { Product } from '@/modules/product/product.entity';
 import { Category } from '@/modules/category/category.entity';
 import { CategoryRepository } from '@/modules/category/category.repository';
-import { PRODUCT_SORT, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { PRODUCT_SORT, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@/shared/enums/product';
 import { USER_ROLE } from '@/shared/enums/user';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
+import { withRandomSkuSuffix } from '@/shared/utils/sku';
 import { slugFrom } from '@/shared/utils/slug';
 
 jest.mock('@/shared/utils/slug', () => ({
   slugFrom: jest.fn(),
+}));
+
+jest.mock('@/shared/utils/sku', () => ({
+  withRandomSkuSuffix: jest.fn((base: string) => base),
 }));
 
 jest.mock('@/config/logger', () => ({
@@ -38,6 +48,7 @@ const mockImageRepo = {
 
 const mockVariantRepo = {
   findOne: jest.fn(),
+  findBySku: jest.fn(),
   find: jest.fn(),
   create: jest.fn(),
 };
@@ -157,6 +168,20 @@ describe('ProductService.update', () => {
     expect(mockProductRepo.save).toHaveBeenCalledTimes(1);
   });
 
+  it('reloads product without images relation after update', async () => {
+    const existing = makeExistingProduct();
+    const input: UpdateProductInput = { status: PRODUCT_STATUS.ACTIVE };
+    const saved = { ...existing, status: PRODUCT_STATUS.ACTIVE, updatedBy: ADMIN_ID };
+    const reloaded = { ...saved, images: undefined } as unknown as Product;
+
+    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(reloaded);
+    mockProductRepo.save.mockResolvedValue(saved);
+
+    const result = await service.update(PRODUCT_ID, input, ADMIN_ID);
+
+    expect(result.images).toBeUndefined();
+  });
+
   it('regenerates slug when name changes', async () => {
     const existing = makeExistingProduct();
     const input: UpdateProductInput = { name: 'New Name' };
@@ -208,6 +233,24 @@ describe('ProductService.update', () => {
     mockCategoryRepo.findOne.mockResolvedValueOnce(null);
 
     await expect(service.update(PRODUCT_ID, input, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('updates categoryId when a new category exists', async () => {
+    const existing = makeExistingProduct();
+    const updated = { ...existing, categoryId: NEW_CATEGORY_ID, updatedBy: ADMIN_ID };
+    const input: UpdateProductInput = { categoryId: NEW_CATEGORY_ID };
+
+    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(updated);
+    mockCategoryRepo.findOne.mockResolvedValueOnce({ id: NEW_CATEGORY_ID } as Category);
+    mockProductRepo.save.mockResolvedValue(updated);
+
+    const result = await service.update(PRODUCT_ID, input, ADMIN_ID);
+
+    expect(mockCategoryRepo.findOne).toHaveBeenCalledWith({ where: { id: NEW_CATEGORY_ID } });
+    expect(mockProductRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: NEW_CATEGORY_ID, updatedBy: ADMIN_ID }),
+    );
+    expect(result.categoryId).toBe(NEW_CATEGORY_ID);
   });
 
   it('throws ConflictError when regenerated slug collides with another product', async () => {
@@ -311,6 +354,52 @@ describe('ProductService.update', () => {
     ]);
   });
 
+  it('updates only sortOrder on an image when other patch fields are omitted', async () => {
+    const existing = makeExistingProduct();
+    const target = makeExistingImage({ id: EXISTING_IMAGE_ID, sortOrder: 0 });
+    const input: UpdateProductInput = {
+      updateImages: [{ id: EXISTING_IMAGE_ID, sortOrder: 9 }],
+    };
+
+    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce({
+      ...existing,
+      images: [{ ...target, sortOrder: 9 }],
+    });
+    mockProductRepo.save.mockResolvedValue(existing);
+    mockImageRepo.find
+      .mockResolvedValueOnce([target])
+      .mockResolvedValueOnce([{ ...target, sortOrder: 9 }]);
+
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
+
+    expect(mockImageRepo.save).toHaveBeenCalledWith([
+      expect.objectContaining({ id: EXISTING_IMAGE_ID, sortOrder: 9 }),
+    ]);
+  });
+
+  it('updates image url via updateImages', async () => {
+    const existing = makeExistingProduct();
+    const target = makeExistingImage({ id: EXISTING_IMAGE_ID, url: 'https://example.com/old.jpg' });
+    const input: UpdateProductInput = {
+      updateImages: [{ id: EXISTING_IMAGE_ID, url: 'https://example.com/new.jpg' }],
+    };
+
+    mockProductRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce({
+      ...existing,
+      images: [{ ...target, url: 'https://example.com/new.jpg' }],
+    });
+    mockProductRepo.save.mockResolvedValue(existing);
+    mockImageRepo.find
+      .mockResolvedValueOnce([target])
+      .mockResolvedValueOnce([{ ...target, url: 'https://example.com/new.jpg' }]);
+
+    await service.update(PRODUCT_ID, input, ADMIN_ID);
+
+    expect(mockImageRepo.save).toHaveBeenCalledWith([
+      expect.objectContaining({ id: EXISTING_IMAGE_ID, url: 'https://example.com/new.jpg' }),
+    ]);
+  });
+
   it('throws BadRequestError when updateImages ids do not belong to product', async () => {
     const existing = makeExistingProduct();
     const input: UpdateProductInput = {
@@ -410,6 +499,317 @@ describe('ProductService.update', () => {
     expect(mockImageRepo.create).toHaveBeenCalledWith([
       expect.objectContaining({ url: 'https://example.com/new.jpg', productId: PRODUCT_ID }),
     ]);
+  });
+});
+
+describe('ProductService.findById', () => {
+  let service: ProductService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    const productRepo = new ProductRepository(mockProductRepo as never);
+    const imageRepo = new ProductImageRepository(mockImageRepo as never);
+    const variantRepo = new ProductVariantRepository(mockVariantRepo as never);
+    const categoryRepo = new CategoryRepository(mockCategoryRepo as never);
+
+    service = new ProductService({
+      productRepo,
+      imageRepo,
+      variantRepo,
+      categoryRepo,
+      dataSource: mockDataSource as never,
+    });
+  });
+
+  it('returns product with relations when found', async () => {
+    const full = makeExistingProduct();
+    mockProductRepo.findOne.mockResolvedValue(full);
+
+    const result = await service.findById(PRODUCT_ID);
+
+    expect(result).toBe(full);
+    expect(mockProductRepo.findOne).toHaveBeenCalledWith({
+      where: { id: PRODUCT_ID },
+      relations: ['variants', 'images'],
+    });
+  });
+
+  it('throws NotFoundError when product does not exist', async () => {
+    mockProductRepo.findOne.mockResolvedValue(null);
+
+    await expect(service.findById(PRODUCT_ID)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('ProductService.findAll', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('delegates to repository.findAll with query and role options', async () => {
+    const stub = {
+      data: [],
+      meta: { totalCount: 0, currentPage: 1, pageCount: 0, limit: 10 },
+    };
+    const findAllSpy = jest
+      .spyOn(ProductRepository.prototype, 'findAll')
+      .mockResolvedValue(stub as never);
+
+    const productRepo = new ProductRepository(mockProductRepo as never);
+    const imageRepo = new ProductImageRepository(mockImageRepo as never);
+    const variantRepo = new ProductVariantRepository(mockVariantRepo as never);
+    const categoryRepo = new CategoryRepository(mockCategoryRepo as never);
+    const svc = new ProductService({
+      productRepo,
+      imageRepo,
+      variantRepo,
+      categoryRepo,
+      dataSource: mockDataSource as never,
+    });
+
+    const query: ListProductsQuery = { page: 1, limit: 10 };
+    const result = await svc.findAll(query, { requesterRole: USER_ROLE.ADMIN });
+
+    expect(result).toBe(stub);
+    expect(findAllSpy).toHaveBeenCalledWith(query, { requesterRole: USER_ROLE.ADMIN });
+  });
+});
+
+describe('ProductService.create', () => {
+  let service: ProductService;
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+
+    jest
+      .mocked(slugFrom)
+      .mockImplementation((name: string) => `${name.toLowerCase().replace(/\s+/g, '-')}-xxxx`);
+
+    mockDataSource.transaction.mockImplementation(
+      async (cb: (manager: { getRepository: (entity: unknown) => unknown }) => Promise<unknown>) =>
+        cb({ getRepository: getRepositoryImpl }),
+    );
+    mockProductRepo.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    });
+
+    const productRepo = new ProductRepository(mockProductRepo as never);
+    const imageRepo = new ProductImageRepository(mockImageRepo as never);
+    const variantRepo = new ProductVariantRepository(mockVariantRepo as never);
+    const categoryRepo = new CategoryRepository(mockCategoryRepo as never);
+
+    service = new ProductService({
+      productRepo,
+      imageRepo,
+      variantRepo,
+      categoryRepo,
+      dataSource: mockDataSource as never,
+    });
+  });
+
+  const makeCategory = (): Category => ({ id: OLD_CATEGORY_ID }) as unknown as Category;
+
+  const baseInput: CreateProductInput = {
+    categoryId: OLD_CATEGORY_ID,
+    name: 'Test Coffee',
+    roastLevel: ROAST_LEVEL.MEDIUM,
+    isOrganic: false,
+    isFairTrade: false,
+    status: PRODUCT_STATUS.DRAFT,
+    variants: [
+      {
+        sku: 'SKU-01',
+        weight: 250,
+        unit: PRODUCT_UNIT.G,
+        price: 100000,
+        discountType: null,
+        discountValue: null,
+        quantity: 10,
+      },
+    ],
+    images: [],
+  };
+
+  it('throws NotFoundError when category does not exist', async () => {
+    mockCategoryRepo.findOne.mockResolvedValue(null);
+    await expect(service.create(baseInput, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws BadRequestError when request contains duplicate SKUs', async () => {
+    mockCategoryRepo.findOne.mockResolvedValue(makeCategory());
+    const input: CreateProductInput = {
+      ...baseInput,
+      variants: [
+        {
+          sku: 'SKU-DUP',
+          weight: 250,
+          unit: PRODUCT_UNIT.G,
+          price: 100000,
+          discountType: null,
+          discountValue: null,
+          quantity: 10,
+        },
+        {
+          sku: 'SKU-DUP',
+          weight: 500,
+          unit: PRODUCT_UNIT.G,
+          price: 180000,
+          discountType: null,
+          discountValue: null,
+          quantity: 5,
+        },
+      ],
+    };
+    await expect(service.create(input, ADMIN_ID)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('throws ConflictError when product slug already exists', async () => {
+    mockCategoryRepo.findOne.mockResolvedValue(makeCategory());
+    mockProductRepo.findOne.mockResolvedValue(makeExistingProduct());
+    await expect(service.create(baseInput, ADMIN_ID)).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('creates product with generated SKUs and returns full relations', async () => {
+    const input: CreateProductInput = {
+      ...baseInput,
+      variants: [
+        {
+          sku: 'SKU-01',
+          weight: 250,
+          unit: PRODUCT_UNIT.G,
+          price: 100000,
+          discountType: null,
+          discountValue: null,
+          quantity: 10,
+        },
+        {
+          sku: 'SKU-02',
+          weight: 500,
+          unit: PRODUCT_UNIT.G,
+          price: 180000,
+          discountType: null,
+          discountValue: null,
+          quantity: 5,
+        },
+      ],
+      images: [{ url: 'https://example.com/p1.jpg', isPrimary: true, sortOrder: 0 }],
+    };
+    const created = { id: PRODUCT_ID } as Product;
+    const full = {
+      ...makeExistingProduct(),
+      variants: [{ sku: 'SKU-01-X' } as never, { sku: 'SKU-02-X' } as never],
+      images: [makeExistingImage({ url: 'https://example.com/p1.jpg', isPrimary: true })],
+    } as Product;
+
+    jest.mocked(withRandomSkuSuffix).mockImplementation((base: string) => `${base}-X`);
+    mockCategoryRepo.findOne.mockResolvedValue(makeCategory());
+    mockProductRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(full);
+    mockVariantRepo.findOne.mockResolvedValue(null);
+    mockVariantRepo.create.mockImplementation((data: unknown) => data);
+    mockImageRepo.create.mockImplementation((data: unknown) => data);
+    mockProductRepo.create.mockReturnValue(created);
+    mockProductRepo.save.mockResolvedValue(created);
+
+    const result = await service.create(input, ADMIN_ID);
+
+    expect(withRandomSkuSuffix).toHaveBeenCalledWith('SKU-01');
+    expect(withRandomSkuSuffix).toHaveBeenCalledWith('SKU-02');
+    expect(mockVariantRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sku: 'SKU-01-X',
+        name: '250G',
+        createdBy: ADMIN_ID,
+      }),
+    );
+    expect(mockVariantRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sku: 'SKU-02-X',
+        name: '500G',
+        createdBy: ADMIN_ID,
+      }),
+    );
+    expect(result).toEqual(full);
+  });
+
+  it('retries SKU generation when a candidate collides with another variant in the same request', async () => {
+    const input: CreateProductInput = {
+      ...baseInput,
+      variants: [
+        {
+          sku: 'SKU-A',
+          weight: 250,
+          unit: PRODUCT_UNIT.G,
+          price: 100000,
+          discountType: null,
+          discountValue: null,
+          quantity: 10,
+        },
+        {
+          sku: 'SKU-B',
+          weight: 500,
+          unit: PRODUCT_UNIT.G,
+          price: 180000,
+          discountType: null,
+          discountValue: null,
+          quantity: 5,
+        },
+      ],
+    };
+    const created = { id: PRODUCT_ID } as Product;
+    const full = {
+      ...makeExistingProduct(),
+      variants: [{ sku: 'SHARED' } as never, { sku: 'SHARED-UNIQUE' } as never],
+    } as Product;
+
+    let suffixCall = 0;
+    jest.mocked(withRandomSkuSuffix).mockImplementation(() => {
+      suffixCall += 1;
+      if (suffixCall === 1) return 'SHARED';
+      if (suffixCall === 2) return 'SHARED';
+      return 'SHARED-UNIQUE';
+    });
+    mockCategoryRepo.findOne.mockResolvedValue(makeCategory());
+    mockProductRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(full);
+    mockVariantRepo.findOne.mockResolvedValue(null);
+    mockVariantRepo.create.mockImplementation((data: unknown) => data);
+    mockImageRepo.create.mockImplementation((data: unknown) => data);
+    mockProductRepo.create.mockReturnValue(created);
+    mockProductRepo.save.mockResolvedValue(created);
+
+    const result = await service.create(input, ADMIN_ID);
+
+    expect(suffixCall).toBe(3);
+    expect(mockVariantRepo.findOne).toHaveBeenCalledTimes(2);
+    expect(result).toEqual(full);
+  });
+
+  it('throws ConflictError when unique SKU cannot be generated after max attempts', async () => {
+    jest.mocked(withRandomSkuSuffix).mockReturnValue('SKU-COLLIDE');
+    mockCategoryRepo.findOne.mockResolvedValue(makeCategory());
+    mockProductRepo.findOne.mockResolvedValueOnce(null);
+    mockVariantRepo.findOne.mockResolvedValue({ id: 'existing-variant' });
+
+    await expect(service.create(baseInput, ADMIN_ID)).rejects.toBeInstanceOf(ConflictError);
+    expect(mockVariantRepo.findOne).toHaveBeenCalledTimes(5);
+    expect(mockProductRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError when saved product cannot be reloaded with relations', async () => {
+    const created = { id: PRODUCT_ID } as Product;
+
+    jest.mocked(withRandomSkuSuffix).mockImplementation((base: string) => `${base}-X`);
+    mockCategoryRepo.findOne.mockResolvedValue(makeCategory());
+    mockProductRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    mockVariantRepo.findOne.mockResolvedValue(null);
+    mockVariantRepo.create.mockImplementation((data: unknown) => data);
+    mockImageRepo.create.mockImplementation((data: unknown) => data);
+    mockProductRepo.create.mockReturnValue(created);
+    mockProductRepo.save.mockResolvedValue(created);
+
+    await expect(service.create(baseInput, ADMIN_ID)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
@@ -674,5 +1074,36 @@ describe('ProductRepository.findAll', () => {
 
     expect(result.data[0].id).toBe(PRODUCT_ID);
     expect(result.data[1].id).toBe(OTHER_PRODUCT_ID);
+  });
+});
+
+describe('ProductVariantRepository.findByIds', () => {
+  const mockVariantListRepo = {
+    find: jest.fn(),
+  };
+
+  const variantRepository = new ProductVariantRepository(mockVariantListRepo as never);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns empty array without calling find when ids is empty', async () => {
+    await expect(variantRepository.findByIds([])).resolves.toEqual([]);
+    expect(mockVariantListRepo.find).not.toHaveBeenCalled();
+  });
+
+  it('finds by id In(...) and passes relations when provided', async () => {
+    const ids = ['6ba7b810-9dad-11d1-80b4-00c04fd430c8', '7ba7b810-9dad-11d1-80b4-00c04fd430c8'];
+    const rows = [{ id: ids[0] }, { id: ids[1] }] as ProductVariant[];
+    mockVariantListRepo.find.mockResolvedValue(rows);
+
+    const result = await variantRepository.findByIds(ids, ['product', 'product.images']);
+
+    expect(mockVariantListRepo.find).toHaveBeenCalledWith({
+      where: { id: In(ids) },
+      relations: ['product', 'product.images'],
+    });
+    expect(result).toEqual(rows);
   });
 });
