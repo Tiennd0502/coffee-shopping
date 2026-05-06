@@ -46,6 +46,22 @@ export const ErrorResponseSchema = z
 registry.register('ErrorItem', ErrorItemSchema);
 registry.register('ErrorResponse', ErrorResponseSchema);
 
+export const PaginationMetaSchema = z
+  .object({
+    page: z.number().int(),
+    limit: z.number().int(),
+    total: z.number().int(),
+    totalPages: z.number().int(),
+  })
+  .openapi('PaginationMeta');
+
+registry.register('PaginationMeta', PaginationMetaSchema);
+
+export const dataResponse = <T extends z.ZodTypeAny>(schema: T) => z.object({ data: schema });
+
+export const paginatedResponse = <T extends z.ZodTypeAny>(schema: T) =>
+  z.object({ data: z.array(schema), meta: PaginationMetaSchema });
+
 export const bearerAuth = { bearerAuth: [] };
 
 type ErrorItem = z.infer<typeof ErrorItemSchema>;
