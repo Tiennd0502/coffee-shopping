@@ -22,3 +22,10 @@ export enum PRODUCT_SORT {
   NAME_ASC = 'NAME_ASC',
   NAME_DESC = 'NAME_DESC',
 }
+
+export enum PRODUCT_UNIT {
+  KG = 'KG',
+  G = 'G',
+  ML = 'ML',
+  L = 'L',
+}

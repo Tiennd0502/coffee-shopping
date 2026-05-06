@@ -57,10 +57,6 @@ export const VALIDATION_RULES = {
         MIN_LENGTH: 1,
         MAX_LENGTH: 100,
       },
-      UNIT: {
-        MIN_LENGTH: 1,
-        MAX_LENGTH: 20,
-      },
     },
   },
   IMAGE: {

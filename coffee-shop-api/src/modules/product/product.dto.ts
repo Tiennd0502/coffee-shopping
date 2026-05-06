@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
-import { DISCOUNT_TYPE, PRODUCT_SORT, PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import {
+  DISCOUNT_TYPE,
+  PRODUCT_SORT,
+  PRODUCT_STATUS,
+  PRODUCT_UNIT,
+  ROAST_LEVEL,
+} from '@/shared/enums/product';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
 export const CreateProductVariantSchema = z.object({
@@ -11,11 +17,7 @@ export const CreateProductVariantSchema = z.object({
     .max(VALIDATION_RULES.PRODUCT.VARIANT.SKU.MAX_LENGTH)
     .trim(),
   weight: z.number().positive(),
-  unit: z
-    .string()
-    .min(VALIDATION_RULES.PRODUCT.VARIANT.UNIT.MIN_LENGTH)
-    .max(VALIDATION_RULES.PRODUCT.VARIANT.UNIT.MAX_LENGTH)
-    .trim(),
+  unit: z.nativeEnum(PRODUCT_UNIT),
   price: z.number().positive(),
   discountType: z.nativeEnum(DISCOUNT_TYPE).nullable().default(null),
   discountValue: z.number().positive().nullable().default(null),
@@ -218,7 +220,7 @@ export const ProductVariantResponseSchema = z.object({
   productId: z.string().uuid(),
   sku: z.string(),
   weight: z.number(),
-  unit: z.string(),
+  unit: z.nativeEnum(PRODUCT_UNIT),
   name: z.string(),
   price: z.number(),
   discountType: z.nativeEnum(DISCOUNT_TYPE).nullable(),

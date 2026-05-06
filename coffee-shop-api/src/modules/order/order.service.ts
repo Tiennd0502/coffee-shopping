@@ -9,7 +9,8 @@ import { ORDER_CONSTANTS } from '@/shared/constants/order';
 import { DISCOUNT_TYPE } from '@/shared/enums/product';
 import { ORDER_STATUS } from '@/shared/enums/order';
 import { USER_STATUS } from '@/shared/enums/user';
-import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
+import { BadRequestError, ErrorItem, ForbiddenError, NotFoundError } from '@/shared/errors/app';
+import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { BaseService } from '@/shared/services/base.service';
 import { DiscountStrategyFactory } from '@/shared/strategies/discount/discount.factory';
@@ -92,16 +93,29 @@ export class OrderService extends BaseService<Order, OrderRepository> {
     const variants = await this.variantRepo.findByIds(variantIds, ['product', 'product.images']);
     const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
 
-    for (const item of input.items) {
+    const stockErrors: ErrorItem[] = [];
+
+    for (const [index, item] of input.items.entries()) {
       const variant = variantMap.get(item.variantId);
       if (!variant) {
         throw new NotFoundError('Product variant');
       }
       if (variant.quantity < item.quantity) {
-        throw new BadRequestError(
-          ERROR_MESSAGES.ORDER.INSUFFICIENT_STOCK(variant.sku, variant.quantity),
+        const insufficientStockMsg = ERROR_MESSAGES.ORDER.INSUFFICIENT_STOCK(
+          variant.sku,
+          variant.quantity,
         );
+        stockErrors.push({
+          errCode: ErrorCode.BAD_REQUEST,
+          field: `items[${index}]`,
+          message: insufficientStockMsg,
+          description: insufficientStockMsg,
+        });
       }
+    }
+
+    if (stockErrors.length > 0) {
+      throw new BadRequestError(ERROR_MESSAGES.INVALID_REQUEST, stockErrors);
     }
 
     let subTotal = 0;

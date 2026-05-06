@@ -20,7 +20,7 @@ export const ERROR_MESSAGES = {
     SHIPPING_METHOD_NOT_FOUND: 'Shipping method not found or inactive',
     VARIANT_NOT_FOUND: (id: string): string => `Variant ${id} not found`,
     INSUFFICIENT_STOCK: (sku: string, available: number): string =>
-      `Insufficient stock for variant ${sku}: only ${String(available)} units available`,
+      `Insufficient stock for variant ${sku}: ${available <= 0 ? 'out of stock' : `only ${String(available)} unit${available === 1 ? '' : 's'} available`}`,
     DUPLICATE_VARIANT: 'Duplicate variant found in order items',
     CANNOT_DELETE_ORDER: 'Only pending or cancelled orders can be deleted',
     INVALID_TRANSITION: (name: string, from: string, to: string): string =>

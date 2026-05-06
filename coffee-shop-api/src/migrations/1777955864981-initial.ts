@@ -29,7 +29,10 @@ export class Initial1777955864981 implements MigrationInterface {
       `CREATE TYPE "public"."product_variants_discount_type_enum" AS ENUM('PERCENT', 'FIXED')`,
     );
     await queryRunner.query(
-      `CREATE TABLE "product_variants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "created_by" uuid, "updated_by" uuid, "deleted_by" uuid, "product_id" uuid NOT NULL, "sku" character varying(100) NOT NULL, "weight" numeric(10,2) NOT NULL, "unit" character varying(20) NOT NULL, "name" character varying(100) NOT NULL, "price" numeric(10,2) NOT NULL, "discount_type" "public"."product_variants_discount_type_enum", "discount_value" numeric(10,2), "quantity" integer NOT NULL DEFAULT '0', CONSTRAINT "PK_281e3f2c55652d6a22c0aa59fd7" PRIMARY KEY ("id"))`,
+      `CREATE TYPE "public"."product_variants_unit_type_enum" AS ENUM('KG', 'G', 'L', 'ML')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "product_variants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "created_by" uuid, "updated_by" uuid, "deleted_by" uuid, "product_id" uuid NOT NULL, "sku" character varying(100) NOT NULL, "weight" numeric(10,2) NOT NULL, "unit" "public"."product_variants_unit_type_enum", "name" character varying(100) NOT NULL, "price" numeric(10,2) NOT NULL, "discount_type" "public"."product_variants_discount_type_enum", "discount_value" numeric(10,2), "quantity" integer NOT NULL DEFAULT '0', CONSTRAINT "PK_281e3f2c55652d6a22c0aa59fd7" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "UQ_product_variants_sku_active" ON "product_variants" ("sku") WHERE "deleted_at" IS NULL`,
@@ -146,6 +149,7 @@ export class Initial1777955864981 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "public"."UQ_product_variants_sku_active"`);
     await queryRunner.query(`DROP TABLE "product_variants"`);
     await queryRunner.query(`DROP TYPE "public"."product_variants_discount_type_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."product_variants_unit_type_enum"`);
     await queryRunner.query(`DROP TABLE "product_images"`);
     await queryRunner.query(`DROP INDEX "public"."UQ_categories_name_active"`);
     await queryRunner.query(`DROP TABLE "categories"`);
