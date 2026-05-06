@@ -143,4 +143,95 @@ describe('requireAdmin', () => {
 
     expect(next).toHaveBeenCalledWith();
   });
+
+  it('calls next with FORBIDDEN when userRole is undefined', async () => {
+    const { requireAdmin } = await import('@/middlewares/auth');
+    const req = createMockRequest();
+
+    requireAdmin(req, res, next);
+
+    expectNextCalledWithAppError(
+      ErrorCode.FORBIDDEN,
+      StatusCodes.FORBIDDEN,
+      ERROR_MESSAGES.FORBIDDEN,
+    );
+  });
+});
+
+describe('attachUserIfAuthenticated', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('calls next without enriching when getAuth throws', async () => {
+    const { attachUserIfAuthenticated } = await import('@/middlewares/auth');
+    mockGetAuth.mockImplementation(() => {
+      throw new Error('Clerk not initialized');
+    });
+    const req = createMockRequest();
+
+    await attachUserIfAuthenticated(req, res, next);
+
+    expect(req.userId).toBeUndefined();
+    expect(req.userRole).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('calls next without enriching when clerkId is missing', async () => {
+    const { attachUserIfAuthenticated } = await import('@/middlewares/auth');
+    mockGetAuth.mockReturnValue({ userId: null });
+    const req = createMockRequest();
+
+    await attachUserIfAuthenticated(req, res, next);
+
+    expect(mockFindUserByClerkId).not.toHaveBeenCalled();
+    expect(req.userId).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('calls next without enriching when user is not found', async () => {
+    const { attachUserIfAuthenticated } = await import('@/middlewares/auth');
+    mockGetAuth.mockReturnValue({ userId: 'clerk_123' });
+    mockFindUserByClerkId.mockResolvedValue(null);
+    const req = createMockRequest();
+
+    await attachUserIfAuthenticated(req, res, next);
+
+    expect(mockFindUserByClerkId).toHaveBeenCalledWith('clerk_123');
+    expect(req.userId).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('calls next without enriching when user is inactive', async () => {
+    const { attachUserIfAuthenticated } = await import('@/middlewares/auth');
+    mockGetAuth.mockReturnValue({ userId: 'clerk_123' });
+    mockFindUserByClerkId.mockResolvedValue({
+      id: 'user-uuid',
+      role: USER_ROLE.USER,
+      status: USER_STATUS.INACTIVE,
+    });
+    const req = createMockRequest();
+
+    await attachUserIfAuthenticated(req, res, next);
+
+    expect(req.userId).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('sets req.userId and req.userRole then calls next when user is active', async () => {
+    const { attachUserIfAuthenticated } = await import('@/middlewares/auth');
+    mockGetAuth.mockReturnValue({ userId: 'clerk_123' });
+    mockFindUserByClerkId.mockResolvedValue({
+      id: 'user-uuid',
+      role: USER_ROLE.USER,
+      status: USER_STATUS.ACTIVE,
+    });
+    const req = createMockRequest();
+
+    await attachUserIfAuthenticated(req, res, next);
+
+    expect(req.userId).toBe('user-uuid');
+    expect(req.userRole).toBe(USER_ROLE.USER);
+    expect(next).toHaveBeenCalledWith();
+  });
 });

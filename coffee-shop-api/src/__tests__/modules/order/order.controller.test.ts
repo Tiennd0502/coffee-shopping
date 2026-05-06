@@ -10,6 +10,7 @@ import {
   SHIPPING_STATUS,
 } from '@/shared/enums/order';
 import { USER_ROLE } from '@/shared/enums/user';
+import { NotFoundError } from '@/shared/errors/app';
 
 const makeOrder = (): Order =>
   ({
@@ -187,5 +188,37 @@ describe('OrderController', () => {
     expect(mockService.remove).toHaveBeenCalledWith(req.params.id);
     expect(res.status).toHaveBeenCalledWith(StatusCodes.NO_CONTENT);
     expect(res.send).toHaveBeenCalled();
+  });
+
+  it('propagates errors from create when service throws', async () => {
+    const req = {
+      userId: '550e8400-e29b-41d4-a716-446655440000',
+      body: {
+        shippingAddress: {
+          firstName: 'Test',
+          lastName: 'User',
+          phoneNumber: '0123456789',
+          addressLine: '123 Nguyen Trai Street District One',
+          city: 'HCM',
+        },
+        shippingMethodId: 'c56a4180-65aa-42ec-a945-5fd21dec0538',
+        paymentMethod: PAYMENT_METHOD.COD,
+        items: [{ variantId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8', quantity: 1 }],
+      },
+    } as Request;
+    const res = createMockRes();
+    mockService.create.mockRejectedValue(new NotFoundError('Variant'));
+
+    await expect(controller.create(req, res)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('propagates errors from remove when service throws', async () => {
+    const req = {
+      params: { id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' },
+    } as unknown as Request;
+    const res = createMockRes();
+    mockService.remove.mockRejectedValue(new NotFoundError('Order'));
+
+    await expect(controller.remove(req, res)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
