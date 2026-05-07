@@ -56,7 +56,7 @@ describe('ProductController', () => {
     controller = new ProductController(mockService as never);
   });
 
-  it('list calls service with query and requesterRole and returns 200', async () => {
+  it('list calls service with query and isAdmin derived from role and returns 200', async () => {
     const req = {
       userRole: USER_ROLE.ADMIN,
       query: { page: '1', limit: '10' },
@@ -74,7 +74,7 @@ describe('ProductController', () => {
     expect(mockService.findAll).toHaveBeenCalledWith(
       { page: 1, limit: 10 },
       {
-        requesterRole: USER_ROLE.ADMIN,
+        isAdmin: true,
       },
     );
     expect(res.status).toHaveBeenCalledWith(StatusCodes.OK);
@@ -84,6 +84,23 @@ describe('ProductController', () => {
         meta: paged.meta,
       }),
     );
+  });
+
+  it('list passes isAdmin false for non-admin requesters', async () => {
+    const req = {
+      userRole: USER_ROLE.USER,
+      query: { page: '1', limit: '10' },
+    } as unknown as Request;
+    const res = createMockRes();
+    mockService.findAll.mockResolvedValue({
+      data: [],
+      meta: { currentPage: 1, pageCount: 0, limit: 10, totalCount: 0 },
+    });
+
+    await controller.list(req, res);
+
+    expect(mockService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 }, { isAdmin: false });
+    expect(res.status).toHaveBeenCalledWith(StatusCodes.OK);
   });
 
   it('get calls service with params.id and returns 200', async () => {

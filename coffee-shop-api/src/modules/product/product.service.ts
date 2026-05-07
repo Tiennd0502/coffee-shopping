@@ -4,7 +4,6 @@ import { createModuleLogger } from '@/config/logger';
 import { Category } from '@/modules/category/category.entity';
 import type { CategoryRepository } from '@/modules/category/category.repository';
 import { PRODUCT_STATUS } from '@/shared/enums/product';
-import { USER_ROLE } from '@/shared/enums/user';
 import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
@@ -53,7 +52,7 @@ export class ProductService extends BaseService<Product, ProductRepository> {
 
   findAll(
     query: ListProductsQuery,
-    options?: { requesterRole?: USER_ROLE },
+    options?: { isAdmin?: boolean },
   ): Promise<PaginatedResponse<Product[]>> {
     return this.repository.findAll(query, options);
   }

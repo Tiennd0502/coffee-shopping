@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import { Category } from '@/modules/category/category.entity';
 import { CategoryController } from '@/modules/category/category.v1.controller';
 import { ConflictError, NotFoundError } from '@/shared/errors/app';
+import { USER_ROLE } from '@/shared/enums/user';
 
 const CATEGORY_ID = 'c56a4180-65aa-4266-a945-5fd21dec0538';
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -44,7 +45,9 @@ describe('CategoryController', () => {
   });
 
   it('list calls service with parsed query and returns 200 with data and meta', async () => {
-    const req = { query: { page: '1', limit: '10' } } as unknown as Request;
+    const req = {
+      query: { page: '1', limit: '10' },
+    } as unknown as Request;
     const res = createMockRes();
     const category = makeCategory();
     const paged = {
@@ -55,7 +58,7 @@ describe('CategoryController', () => {
 
     await controller.list(req, res);
 
-    expect(mockService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 });
+    expect(mockService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 }, { isAdmin: false });
     expect(res.status).toHaveBeenCalledWith(StatusCodes.OK);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -63,6 +66,23 @@ describe('CategoryController', () => {
         meta: paged.meta,
       }),
     );
+  });
+
+  it('list passes isAdmin true for admin requests', async () => {
+    const req = {
+      userRole: USER_ROLE.ADMIN,
+      query: { page: '1', limit: '10' },
+    } as unknown as Request;
+    const res = createMockRes();
+    mockService.findAll.mockResolvedValue({
+      data: [],
+      meta: { currentPage: 1, pageCount: 0, limit: 10, totalCount: 0 },
+    });
+
+    await controller.list(req, res);
+
+    expect(mockService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 }, { isAdmin: true });
+    expect(res.status).toHaveBeenCalledWith(StatusCodes.OK);
   });
 
   it('get calls service with params.id and returns 200', async () => {

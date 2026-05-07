@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import { USER_ROLE } from '@/shared/enums/user';
 
 import { parseOrThrow } from '@/shared/utils/validation';
 
@@ -12,7 +13,8 @@ export class CategoryController {
 
   list = async (req: Request, res: Response): Promise<void> => {
     const query = parseOrThrow(ListCategoriesQuerySchema.safeParse(req.query));
-    const result = await this.service.findAll(query);
+    const isAdmin = req.userRole === USER_ROLE.ADMIN;
+    const result = await this.service.findAll(query, { isAdmin });
 
     res.status(StatusCodes.OK).json({
       data: result.data.map(CategoryMapper.toResponse),

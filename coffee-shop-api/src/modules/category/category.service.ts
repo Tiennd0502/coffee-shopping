@@ -20,8 +20,11 @@ export class CategoryService extends BaseService<Category, CategoryRepository> {
     super(categoryRepo, dataSource);
   }
 
-  findAll(query: ListCategoriesQuery): Promise<PaginatedResponse<Category[]>> {
-    return this.repository.findAll(query);
+  findAll(
+    query: ListCategoriesQuery,
+    options?: { isAdmin?: boolean },
+  ): Promise<PaginatedResponse<Category[]>> {
+    return this.repository.findAll(query, options);
   }
 
   findById(id: string): Promise<Category> {

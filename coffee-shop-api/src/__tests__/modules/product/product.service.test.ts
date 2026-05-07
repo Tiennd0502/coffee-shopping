@@ -15,7 +15,6 @@ import { Product } from '@/modules/product/product.entity';
 import { Category } from '@/modules/category/category.entity';
 import { CategoryRepository } from '@/modules/category/category.repository';
 import { PRODUCT_SORT, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@/shared/enums/product';
-import { USER_ROLE } from '@/shared/enums/user';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { withRandomSkuSuffix } from '@/shared/utils/sku';
 import { slugFrom } from '@/shared/utils/slug';
@@ -547,7 +546,7 @@ describe('ProductService.findAll', () => {
     jest.restoreAllMocks();
   });
 
-  it('delegates to repository.findAll with query and role options', async () => {
+  it('delegates to repository.findAll with query and isAdmin option', async () => {
     const stub = {
       data: [],
       meta: { totalCount: 0, currentPage: 1, pageCount: 0, limit: 10 },
@@ -569,10 +568,10 @@ describe('ProductService.findAll', () => {
     });
 
     const query: ListProductsQuery = { page: 1, limit: 10 };
-    const result = await svc.findAll(query, { requesterRole: USER_ROLE.ADMIN });
+    const result = await svc.findAll(query, { isAdmin: true });
 
     expect(result).toBe(stub);
-    expect(findAllSpy).toHaveBeenCalledWith(query, { requesterRole: USER_ROLE.ADMIN });
+    expect(findAllSpy).toHaveBeenCalledWith(query, { isAdmin: true });
   });
 });
 
@@ -871,6 +870,7 @@ describe('ProductService.remove', () => {
 
 describe('ProductRepository.findAll', () => {
   const mockQb = {
+    withDeleted: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
@@ -887,6 +887,7 @@ describe('ProductRepository.findAll', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQb.withDeleted.mockReturnThis();
     mockQb.orderBy.mockReturnThis();
     mockQb.skip.mockReturnThis();
     mockQb.take.mockReturnThis();
@@ -1041,7 +1042,7 @@ describe('ProductRepository.findAll', () => {
   it('does not force ACTIVE status for admin listing', async () => {
     mockQb.getManyAndCount.mockResolvedValue([[], 0]);
 
-    await listRepository.findAll(DEFAULT_QUERY, { requesterRole: USER_ROLE.ADMIN });
+    await listRepository.findAll(DEFAULT_QUERY, { isAdmin: true });
 
     expect(mockQb.andWhere).not.toHaveBeenCalledWith('product.status = :status', {
       status: PRODUCT_STATUS.ACTIVE,
@@ -1053,12 +1054,36 @@ describe('ProductRepository.findAll', () => {
 
     await listRepository.findAll(
       { ...DEFAULT_QUERY, status: PRODUCT_STATUS.INACTIVE },
-      { requesterRole: USER_ROLE.ADMIN },
+      { isAdmin: true },
     );
 
     expect(mockQb.andWhere).toHaveBeenCalledWith('product.status = :status', {
       status: PRODUCT_STATUS.INACTIVE,
     });
+  });
+
+  it('calls withDeleted and loads relations including soft-deleted for admin listings', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[STUB_PRODUCT], 1]);
+    mockListRepo.find.mockResolvedValue([STUB_FULL]);
+
+    await listRepository.findAll(DEFAULT_QUERY, { isAdmin: true });
+
+    expect(mockQb.withDeleted).toHaveBeenCalled();
+    expect(mockListRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: In([PRODUCT_ID]) },
+        relations: ['variants', 'images'],
+        withDeleted: true,
+      }),
+    );
+  });
+
+  it('does not enable withDeleted on the query builder for non-admin listings', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listRepository.findAll(DEFAULT_QUERY);
+
+    expect(mockQb.withDeleted).not.toHaveBeenCalled();
   });
 
   it('preserves original sort order of ids returned by pagination query', async () => {
