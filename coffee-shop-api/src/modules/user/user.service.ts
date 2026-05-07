@@ -41,8 +41,12 @@ export class UserService extends BaseService<User, UserRepository> {
     this.addressRepo = addressRepo;
   }
 
-  findAll(query: ListUsersQuery, currentUserId: string): Promise<PaginatedResponse<User[]>> {
-    return this.repository.findAll(query, currentUserId);
+  findAll(
+    query: ListUsersQuery,
+    currentUserId: string,
+    options?: { isAdmin?: boolean },
+  ): Promise<PaginatedResponse<User[]>> {
+    return this.repository.findAll(query, currentUserId, options);
   }
 
   findById(id: string): Promise<User> {

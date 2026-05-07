@@ -19,11 +19,19 @@ export class UserRepository extends BaseRepository<User> {
     return this.findOne({ where: { clerkId } });
   }
 
-  async findAll(query: ListUsersQuery, currentUserId: string): Promise<PaginatedResponse<User[]>> {
+  async findAll(
+    query: ListUsersQuery,
+    currentUserId: string,
+    options?: { isAdmin?: boolean },
+  ): Promise<PaginatedResponse<User[]>> {
     const { page, limit, role, status, search } = query;
     const qb = this.createQueryBuilder('user')
       .where('user.id != :currentUserId', { currentUserId })
       .orderBy('user.createdAt', 'DESC');
+
+    if (options?.isAdmin) {
+      qb.withDeleted();
+    }
 
     if (role) {
       qb.andWhere('user.role = :role', { role });

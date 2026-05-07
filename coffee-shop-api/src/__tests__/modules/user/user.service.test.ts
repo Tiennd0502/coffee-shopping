@@ -443,6 +443,7 @@ describe('UserService.findAddressesByUserId', () => {
 describe('UserService.findAll', () => {
   let service: UserService;
   const mockQb = {
+    withDeleted: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -453,6 +454,7 @@ describe('UserService.findAll', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQb.withDeleted.mockReturnThis();
     mockQb.where.mockReturnThis();
     mockQb.andWhere.mockReturnThis();
     mockQb.orderBy.mockReturnThis();
@@ -491,6 +493,18 @@ describe('UserService.findAll', () => {
     );
     expect(result.data).toEqual([row]);
     expect(result.meta!.totalCount).toBe(1);
+    expect(mockQb.withDeleted).not.toHaveBeenCalled();
+  });
+
+  it('includes soft-deleted users when listing as admin', async () => {
+    const row = makeUser();
+    mockQb.getManyAndCount.mockResolvedValue([[row], 1]);
+
+    await service.findAll({ page: 1, limit: 10, role: USER_ROLE.USER } as ListUsersQuery, USER_ID, {
+      isAdmin: true,
+    });
+
+    expect(mockQb.withDeleted).toHaveBeenCalled();
   });
 });
 

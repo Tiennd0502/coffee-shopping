@@ -52,6 +52,7 @@ export const UserResponseSchema = z
     role: userRole,
     createdAt: z.string(),
     updatedAt: z.string(),
+    deletedAt: z.string().nullable(),
   })
   .openapi('UserResponse');
 
