@@ -76,7 +76,29 @@ describe('UserController', () => {
 
     await controller.list(req, res);
 
-    expect(mockService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 }, USER_ID);
+    expect(mockService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 }, USER_ID, {
+      isAdmin: false,
+    });
+    expect(res.status).toHaveBeenCalledWith(StatusCodes.OK);
+  });
+
+  it('list passes isAdmin true when requester is admin', async () => {
+    const req = {
+      userId: USER_ID,
+      userRole: USER_ROLE.ADMIN,
+      query: { page: '2', limit: '5' },
+    } as unknown as Request;
+    const res = createMockRes();
+    mockService.findAll.mockResolvedValue({
+      data: [],
+      meta: { currentPage: 2, pageCount: 0, limit: 5, totalCount: 0 },
+    });
+
+    await controller.list(req, res);
+
+    expect(mockService.findAll).toHaveBeenCalledWith({ page: 2, limit: 5 }, USER_ID, {
+      isAdmin: true,
+    });
     expect(res.status).toHaveBeenCalledWith(StatusCodes.OK);
   });
 

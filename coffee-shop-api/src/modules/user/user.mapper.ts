@@ -21,6 +21,7 @@ export class UserMapper {
       role: user.role,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
+      deletedAt: user.deletedAt?.toISOString() ?? null,
     });
   }
 
