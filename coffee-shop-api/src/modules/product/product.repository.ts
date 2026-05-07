@@ -1,6 +1,5 @@
 import { In, type Repository, type SelectQueryBuilder } from 'typeorm';
 
-import { USER_ROLE } from '@/shared/enums/user';
 import { PRODUCT_SORT, PRODUCT_STATUS } from '@/shared/enums/product';
 import { BaseRepository } from '@/shared/repositories/base.repository';
 import type { PaginatedResponse } from '@/shared/types/response';
@@ -29,12 +28,16 @@ export class ProductRepository extends BaseRepository<Product> {
 
   async findAll(
     query: ListProductsQuery,
-    options?: { requesterRole?: USER_ROLE },
+    options?: { isAdmin?: boolean },
   ): Promise<PaginatedResponse<Product[]>> {
     const { page, limit, search, status, categoryId, roastLevel, minPrice, maxPrice, sortBy } =
       query;
     const qb = this.createQueryBuilder('product');
-    const isAdmin = options?.requesterRole === USER_ROLE.ADMIN;
+    const isAdmin = options?.isAdmin ?? false;
+
+    if (isAdmin) {
+      qb.withDeleted();
+    }
 
     if (status) {
       qb.andWhere('product.status = :status', { status });
@@ -64,7 +67,10 @@ export class ProductRepository extends BaseRepository<Product> {
       return paginated;
     }
 
-    const data = await this.findByIds(paginated.data.map((product) => product.id));
+    const data = await this.findByIds(
+      paginated.data.map((product) => product.id),
+      { withDeleted: isAdmin },
+    );
 
     return {
       data,
@@ -72,7 +78,7 @@ export class ProductRepository extends BaseRepository<Product> {
     };
   }
 
-  async findByIds(ids: string[]): Promise<Product[]> {
+  async findByIds(ids: string[], options?: { withDeleted?: boolean }): Promise<Product[]> {
     if (!ids.length) {
       return [];
     }
@@ -80,6 +86,7 @@ export class ProductRepository extends BaseRepository<Product> {
     const items = await this.find({
       where: { id: In(ids) },
       relations: ['variants', 'images'],
+      withDeleted: options?.withDeleted,
     });
 
     const order = new Map(ids.map((id, index) => [id, index]));

@@ -114,8 +114,23 @@ describe('CategoryService.findAll', () => {
 
     const result = await service.findAll({ page: 1, limit: 10 });
 
-    expect(mockCategoryRepo.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 });
+    expect(mockCategoryRepo.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 }, undefined);
     expect(result).toEqual(paged);
+  });
+
+  it('passes isAdmin option to repository', async () => {
+    const paged = {
+      data: [makeCategory()],
+      meta: { currentPage: 1, pageCount: 1, limit: 10, totalCount: 1 },
+    };
+    mockCategoryRepo.findAll.mockResolvedValue(paged);
+
+    await service.findAll({ page: 1, limit: 10 }, { isAdmin: true });
+
+    expect(mockCategoryRepo.findAll).toHaveBeenCalledWith(
+      { page: 1, limit: 10 },
+      { isAdmin: true },
+    );
   });
 });
 
@@ -229,6 +244,7 @@ describe('CategoryService.update', () => {
 
 describe('CategoryRepository.findAll', () => {
   const mockQb = {
+    withDeleted: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
@@ -244,6 +260,7 @@ describe('CategoryRepository.findAll', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQb.withDeleted.mockReturnThis();
     mockQb.orderBy.mockReturnThis();
     mockQb.andWhere.mockReturnThis();
     mockQb.skip.mockReturnThis();
@@ -288,5 +305,21 @@ describe('CategoryRepository.findAll', () => {
     await listRepository.findAll(DEFAULT_QUERY);
 
     expect(mockQb.andWhere).not.toHaveBeenCalled();
+  });
+
+  it('includes soft-deleted rows when isAdmin is true', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listRepository.findAll(DEFAULT_QUERY, { isAdmin: true });
+
+    expect(mockQb.withDeleted).toHaveBeenCalled();
+  });
+
+  it('does not call withDeleted for non-admin listing', async () => {
+    mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await listRepository.findAll(DEFAULT_QUERY);
+
+    expect(mockQb.withDeleted).not.toHaveBeenCalled();
   });
 });

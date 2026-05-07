@@ -15,9 +15,17 @@ export class CategoryRepository extends BaseRepository<Category> {
     return this.findOne({ where: { name } });
   }
 
-  async findAll(query: ListCategoriesQuery): Promise<PaginatedResponse<Category[]>> {
+  async findAll(
+    query: ListCategoriesQuery,
+    options?: { isAdmin?: boolean },
+  ): Promise<PaginatedResponse<Category[]>> {
     const { page, limit, search } = query;
     const qb = this.createQueryBuilder('category').orderBy('category.createdAt', 'DESC');
+    const isAdmin = options?.isAdmin ?? false;
+
+    if (isAdmin) {
+      qb.withDeleted();
+    }
 
     if (search) {
       qb.andWhere('category.name ILIKE :search OR category.slug ILIKE :search', {
