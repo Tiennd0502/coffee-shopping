@@ -1,0 +1,2 @@
+cd coffee-shop-web
+pnpm lint-staged

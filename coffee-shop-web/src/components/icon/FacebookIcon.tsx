@@ -1,0 +1,28 @@
+import React from 'react'
+
+import type { SVGProps } from '@/types/svg'
+
+const FacebookIcon = ({
+  width = 11,
+  height = 21,
+  color = '#3266CE',
+}: SVGProps) => {
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox="0 0 11 21"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M3.13631 21V11.7243H0V7.85925H3.13631V4.767C3.13631 1.57185 5.18743 0 8.07774 0C9.46219 0 10.6528 0.10185 11 0.147V3.486H8.99467C7.42279 3.486 7.05644 4.22415 7.05644 5.3046V7.85925H10.9755L10.1917 11.7232H7.05644L7.11928 21"
+        fill={color}
+      />
+    </svg>
+  )
+}
+
+export default FacebookIcon
