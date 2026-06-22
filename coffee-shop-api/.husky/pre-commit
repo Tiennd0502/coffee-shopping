@@ -1,2 +1,0 @@
-cd coffee-shop-api
-pnpm lint-staged
