@@ -1,0 +1,29 @@
+{
+  "name": "nodejs-training",
+  "private": true,
+  "packageManager": "pnpm@7.32.2",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "turbo run build",
+    "build:api": "pnpm --filter api build",
+    "build:web": "pnpm --filter web build",
+    "start": "turbo run start",
+    "start:api": "PORT=3000 turbo run start --filter=api",
+    "start:web": "turbo run start --filter=web",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "test:coverage": "turbo run test:coverage",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "turbo": "^2.5.5"
+  }
+}

@@ -1,9 +1,0 @@
-node_modules/
-dist/
-coverage/
-.jest-cache/
-.env
-.env.*
-!.env.example
-.DS_Store
-*.log
