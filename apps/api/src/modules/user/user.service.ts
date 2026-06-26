@@ -2,7 +2,7 @@ import type { DataSource } from 'typeorm';
 
 import { clerkClient } from '@/config/clerk';
 import { createModuleLogger } from '@/config/logger';
-import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 import { AppError, ConflictError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';

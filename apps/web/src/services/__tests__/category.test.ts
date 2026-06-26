@@ -1,4 +1,3 @@
-import { API_FALLBACK_ERRORS } from '@/constants/messages';
 import { API_ROUTES } from '@/constants/routes';
 import { fetchCategoryById, updateCategory } from '@/services/category';
 
@@ -97,7 +96,6 @@ describe('category service update flows', () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
-      json: async () => ({ message: '' }),
     });
     globalThis.fetch = fetchMock as typeof fetch;
 
@@ -105,7 +103,6 @@ describe('category service update flows', () => {
 
     expect(result).toEqual({
       ok: false,
-      error: `${API_FALLBACK_ERRORS.CATEGORY_UPDATE} (500)`,
       status: 500,
     });
   });

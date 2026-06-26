@@ -18,6 +18,7 @@ const config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  transformIgnorePatterns: ['/node_modules/(?!@repo/)'],
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },

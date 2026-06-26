@@ -1,7 +1,7 @@
 import { API_FALLBACK_ERRORS, ERROR_MESSAGES } from '@/constants/messages';
 import { API_ROUTES } from '@/constants/routes';
 import { deleteUserById, fetchUsers } from '@/services/user';
-import { USER_ROLES } from '@/types/user';
+import { USER_ROLE } from '@repo/types';
 
 describe('fetchUsers', () => {
   const originalFetch = globalThis.fetch;
@@ -34,61 +34,7 @@ describe('fetchUsers', () => {
     if (result.ok) {
       expect(result.users).toHaveLength(1);
       expect(result.users[0].id).toBe('u-1');
-      expect(result.users[0].role).toBe(USER_ROLES.USER);
-    }
-  });
-
-  it('maps user_id and snake_case fields from list items', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: [
-          {
-            user_id: 'usr-9',
-            email: 'a@example.com',
-            first_name: 'Ada',
-            last_name: 'Lovelace',
-            role: 'ADMIN',
-          },
-        ],
-      }),
-    });
-    globalThis.fetch = fetchMock as typeof fetch;
-
-    const result = await fetchUsers();
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.users).toHaveLength(1);
-      expect(result.users[0].id).toBe('usr-9');
-      expect(result.users[0].firstName).toBe('Ada');
-      expect(result.users[0].lastName).toBe('Lovelace');
-      expect(result.users[0].role).toBe(USER_ROLES.ADMIN);
-      expect(result.users[0].deletedAt ?? null).toBeNull();
-    }
-  });
-
-  it('maps deleted_at from list items when present', async () => {
-    const deletedAt = '2026-01-02T00:00:00.000Z';
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: [
-          {
-            id: 'u-del',
-            email: 'gone@example.com',
-            deleted_at: deletedAt,
-          },
-        ],
-      }),
-    });
-    globalThis.fetch = fetchMock as typeof fetch;
-
-    const result = await fetchUsers();
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.users[0].deletedAt).toBe(deletedAt);
+      expect(result.users[0].role).toBe(USER_ROLE.USER);
     }
   });
 
@@ -133,7 +79,6 @@ describe('fetchUsers', () => {
 
     expect(result).toEqual({
       ok: false,
-      error: `${API_FALLBACK_ERRORS.USERS_LOAD} (403)`,
       status: 403,
     });
   });

@@ -5,7 +5,6 @@ import { apiClient } from '@/services/api';
 import type { Product, ProductPayload, ProductUpdatePayload } from '@/types/product';
 
 export interface ProductOptions {
-  getToken?: () => Promise<string | null>;
   page?: number;
   limit?: number;
   search?: string;
@@ -19,12 +18,8 @@ export interface ProductOptions {
 
 export async function createProduct(
   body: ProductPayload,
-  options: ProductOptions = {},
 ): Promise<{ ok: true; product: Product } | { ok: false; error: string; status?: number }> {
-  const result = await apiClient.post<unknown>(API_ROUTES.PRODUCTS, body, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.PRODUCT_CREATE,
-  });
+  const result = await apiClient.post<unknown>(API_ROUTES.PRODUCTS, body);
   if (!result.ok) return result;
 
   const json = result.data;
@@ -56,20 +51,9 @@ export async function fetchProducts(
   | { ok: true; products: Product[]; meta?: ResponseMeta }
   | { ok: false; error: string; status?: number }
 > {
-  const {
-    getToken,
-    page,
-    limit,
-    search,
-    categoryId,
-    status,
-    minPrice,
-    maxPrice,
-    roastLevel,
-    sortBy,
-  } = options;
+  const { page, limit, search, categoryId, status, minPrice, maxPrice, roastLevel, sortBy } =
+    options;
   const result = await apiClient.get<ApiResponse<Product[]>>(API_ROUTES.PRODUCTS, {
-    getToken,
     query: {
       page,
       limit,
@@ -81,7 +65,6 @@ export async function fetchProducts(
       roastLevel: roastLevel?.trim(),
       sortBy: sortBy?.trim(),
     },
-    fallbackError: API_FALLBACK_ERRORS.PRODUCTS_LOAD,
   });
   if (!result.ok) return result;
 
@@ -91,14 +74,10 @@ export async function fetchProducts(
 
 export async function deleteProduct(
   id: string,
-  options: Pick<ProductOptions, 'getToken'> = {},
 ): Promise<{ ok: true } | { ok: false; error: string; status?: number }> {
   const trimmed = id.trim();
   const url = `${API_ROUTES.PRODUCTS}/${encodeURIComponent(trimmed)}`;
-  const result = await apiClient.delete(url, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.PRODUCT_DELETE,
-  });
+  const result = await apiClient.delete(url);
   if (!result.ok) return result;
   return { ok: true };
 }
@@ -127,14 +106,10 @@ function parseProductFromResponse(json: unknown): Product | null {
 
 export async function fetchProductById(
   id: string,
-  options: Pick<ProductOptions, 'getToken'> = {},
 ): Promise<{ ok: true; product: Product } | { ok: false; error: string; status?: number }> {
   const trimmed = id.trim();
   const url = `${API_ROUTES.PRODUCTS}/${encodeURIComponent(trimmed)}`;
-  const result = await apiClient.get<ApiResponse<Product>>(url, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.PRODUCT_LOAD,
-  });
+  const result = await apiClient.get<ApiResponse<Product>>(url);
   if (!result.ok) return result;
 
   const parsed = parseProductFromResponse(result.data);
@@ -153,18 +128,13 @@ function isProductUpdatePayload(
 export async function updateProduct(
   id: string,
   body: ProductPayload | ProductUpdatePayload,
-  options: Pick<ProductOptions, 'getToken'> = {},
 ): Promise<{ ok: true; product: Product } | { ok: false; error: string; status?: number }> {
   const trimmed = id.trim();
   const url = `${API_ROUTES.PRODUCTS}/${encodeURIComponent(trimmed)}`;
-  const opts = {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.PRODUCT_UPDATE,
-  };
 
-  let result = await apiClient.patch<unknown>(url, body, opts);
+  let result = await apiClient.patch<unknown>(url, body);
   if (!result.ok && (result.status === 404 || result.status === 405)) {
-    result = await apiClient.put<unknown>(url, body, opts);
+    result = await apiClient.put<unknown>(url, body);
   }
   if (!result.ok) return result;
 
@@ -173,7 +143,7 @@ export async function updateProduct(
     return { ok: true, product: parsedProduct };
   }
 
-  const refetched = await fetchProductById(trimmed, options);
+  const refetched = await fetchProductById(trimmed);
   if (refetched.ok) {
     return { ok: true, product: refetched.product };
   }

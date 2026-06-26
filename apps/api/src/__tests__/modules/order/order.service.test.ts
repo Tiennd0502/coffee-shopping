@@ -17,7 +17,7 @@ import {
   SHIPPING_STATUS,
 } from '@/shared/enums/order';
 import { DISCOUNT_TYPE } from '@/shared/enums/product';
-import { USER_STATUS } from '@/shared/enums/user';
+import { USER_STATUS } from '@repo/types';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
 

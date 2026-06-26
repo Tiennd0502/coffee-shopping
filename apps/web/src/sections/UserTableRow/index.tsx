@@ -3,8 +3,8 @@
 import { ChevronDown, Pencil, Trash2 } from 'lucide-react';
 
 // Types
-import type { User } from '@/types/user';
-import { USER_ROLES, USER_STATUS } from '@/types/user';
+import type { User } from '@repo/types';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 
 // Components
 import { Avatar } from '@/components/Avatar';
@@ -24,7 +24,7 @@ import { cn } from '@/utils/styles';
 
 export interface UserTableRowProps {
   user: User;
-  onRequestRoleChange?: (user: User, nextRole: USER_ROLES) => void;
+  onRequestRoleChange?: (user: User, nextRole: USER_ROLE) => void;
   onRequestDelete?: (user: User) => void;
   isRoleDisabled?: boolean;
   isDeleteDisabled?: boolean;
@@ -42,10 +42,10 @@ export function UserTableRow({
   const emailRaw = user.email ?? '';
   const emailDisplay = formatUserListEmailForDisplay(emailRaw);
   const imageUrl = user.avatarUrl ?? '';
-  const rowRole = user.role ?? USER_ROLES.USER;
+  const rowRole = user.role ?? USER_ROLE.USER;
   const status = user.status ?? USER_STATUS.INACTIVE;
   const isActive = status === USER_STATUS.ACTIVE;
-  const isAdmin = rowRole === USER_ROLES.ADMIN;
+  const isAdmin = rowRole === USER_ROLE.ADMIN;
   const isUserDeleted = Boolean(user.deletedAt);
   const roleChangeSubject =
     [name.trim(), emailDisplay].find((segment) => segment.length > 0) ?? 'user';

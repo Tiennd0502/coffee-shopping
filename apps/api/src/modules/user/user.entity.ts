@@ -2,7 +2,7 @@ import { Column, Entity, Index, OneToMany } from 'typeorm';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
 import { BaseEntity } from '@/shared/entities/base';
-import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 import { UserAddress } from '@/modules/user/user-address.entity';
 
 /**

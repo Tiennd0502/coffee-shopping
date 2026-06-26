@@ -2,26 +2,21 @@ import { Mail, UserCheck, UserPlus, Users } from 'lucide-react';
 
 import type { StatCardItem } from '@/components/StatsCards';
 import type { TableColumn } from '@/components/Table';
-import { USER_ROLES } from '@/types/user';
+import { USER_ROLE } from '@repo/types';
 
-export const ROLES = {
-  USER: 'USER',
-  ADMIN: 'ADMIN',
-} as const;
-
-export const DEFAULT_USER_PUBLIC_ROLE = ROLES.USER;
+export const DEFAULT_USER_PUBLIC_ROLE = USER_ROLE.USER;
 
 export const ROLES_OPTIONS: readonly {
-  value: USER_ROLES;
+  value: USER_ROLE;
   label: string;
 }[] = [
-  { value: USER_ROLES.USER, label: 'User' },
-  { value: USER_ROLES.ADMIN, label: 'Admin' },
+  { value: USER_ROLE.USER, label: 'User' },
+  { value: USER_ROLE.ADMIN, label: 'Admin' },
 ];
 
 export const ROLE_FILTER_OPTIONS = [
   'All Roles',
-  ...Object.values(USER_ROLES).map((role) => role.toString()),
+  ...Object.values(USER_ROLE).map((role) => role.toString()),
 ] as const;
 
 export const USERS_TABLE_COLUMNS: TableColumn[] = [

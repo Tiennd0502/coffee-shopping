@@ -7,7 +7,7 @@ import { API_FALLBACK_ERRORS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constan
 import { useDeleteUser, useUpdateUserRole, useUsers, type UseUsersParams } from '@/hooks/useUser';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { USER_ROLES, USER_STATUS } from '@/types/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 
 let navQueryString = '';
 
@@ -89,15 +89,15 @@ function mockUsersByApiParams(params: UseUsersParams = {}) {
   let list = [...usersFixture];
 
   if (search.length > 0) {
-    list = list.filter((u) => {
-      const name = (u.name ?? `${u.firstName} ${u.lastName}`).trim().toLowerCase();
-      const email = (u.email ?? '').toLowerCase();
+    list = list.filter((userItem) => {
+      const name = `${userItem.firstName ?? ''} ${userItem.lastName ?? ''}`.trim().toLowerCase();
+      const email = (userItem.email ?? '').toLowerCase();
       return name.includes(search) || email.includes(search);
     });
   }
 
   if (roleFilter) {
-    list = list.filter((u) => u.role === roleFilter);
+    list = list.filter((userItem) => userItem.role === roleFilter);
   }
 
   const pageSize = MOCK_USERS_PAGE_SIZE;
@@ -126,7 +126,7 @@ const usersFixture = [
     lastName: 'Vance',
     name: 'Julian Vance',
     avatarUrl: 'https://i.pravatar.cc/100?img=12',
-    role: USER_ROLES.ADMIN,
+    role: USER_ROLE.ADMIN,
     status: USER_STATUS.ACTIVE,
   },
   {
@@ -136,7 +136,7 @@ const usersFixture = [
     lastName: 'Rossi',
     name: 'Elena Rossi',
     avatarUrl: 'https://i.pravatar.cc/100?img=32',
-    role: USER_ROLES.USER,
+    role: USER_ROLE.USER,
     status: USER_STATUS.ACTIVE,
   },
   {
@@ -146,7 +146,7 @@ const usersFixture = [
     lastName: 'Thorne',
     name: 'Marcus Thorne',
     avatarUrl: 'https://i.pravatar.cc/100?img=15',
-    role: USER_ROLES.USER,
+    role: USER_ROLE.USER,
     status: USER_STATUS.INACTIVE,
   },
   {
@@ -156,7 +156,7 @@ const usersFixture = [
     lastName: 'Bloom',
     name: 'Sasha Bloom',
     avatarUrl: 'https://i.pravatar.cc/100?img=47',
-    role: USER_ROLES.ADMIN,
+    role: USER_ROLE.ADMIN,
     status: USER_STATUS.ACTIVE,
   },
   {
@@ -166,7 +166,7 @@ const usersFixture = [
     lastName: 'Carter',
     name: 'Lena Carter',
     avatarUrl: 'https://i.pravatar.cc/100?img=6',
-    role: USER_ROLES.USER,
+    role: USER_ROLE.USER,
     status: USER_STATUS.ACTIVE,
   },
   {
@@ -176,7 +176,7 @@ const usersFixture = [
     lastName: 'Grimes',
     name: 'Noah Grimes',
     avatarUrl: 'https://i.pravatar.cc/100?img=9',
-    role: USER_ROLES.ADMIN,
+    role: USER_ROLE.ADMIN,
     status: USER_STATUS.INACTIVE,
   },
 ];
@@ -259,7 +259,7 @@ describe('Dashboard users page', () => {
     await waitFor(() => {
       expect(mockUseUsers).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          role: USER_ROLES.ADMIN,
+          role: USER_ROLE.ADMIN,
           page: 1,
           limit: PAGE_SIZE,
         }),

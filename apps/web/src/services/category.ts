@@ -1,11 +1,9 @@
-import { API_FALLBACK_ERRORS } from '@/constants/messages';
 import { API_ROUTES } from '@/constants/routes';
 import type { Category, CategoryPayload } from '@/types/category';
 import type { Response as ApiResponse, ResponseMeta } from '@/types/api';
 import { apiClient } from '@/services/api';
 
 export interface CategoryOptions {
-  getToken?: () => Promise<string | null>;
   page?: number;
   limit?: number;
   search?: string;
@@ -13,13 +11,8 @@ export interface CategoryOptions {
 
 export async function createCategory(
   body: CategoryPayload,
-  options: Pick<CategoryOptions, 'getToken'> = {},
 ): Promise<{ ok: true; category: Category } | { ok: false; error: string; status?: number }> {
-  const { getToken } = options;
-  const result = await apiClient.post<unknown>(API_ROUTES.CATEGORIES, body, {
-    getToken,
-    fallbackError: API_FALLBACK_ERRORS.CATEGORY_CREATE,
-  });
+  const result = await apiClient.post<unknown>(API_ROUTES.CATEGORIES, body);
   if (!result.ok) return result;
 
   const json = result.data;
@@ -52,14 +45,10 @@ export async function createCategory(
 
 export async function deleteCategory(
   id: string,
-  options: Pick<CategoryOptions, 'getToken'> = {},
 ): Promise<{ ok: true } | { ok: false; error: string; status?: number }> {
   const trimmed = id.trim();
   const url = `${API_ROUTES.CATEGORIES}/${encodeURIComponent(trimmed)}`;
-  const result = await apiClient.delete(url, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.CATEGORY_DELETE,
-  });
+  const result = await apiClient.delete(url);
   if (!result.ok) return result;
 
   return { ok: true };
@@ -71,11 +60,9 @@ export async function fetchCategories(
   | { ok: true; categories: Category[]; meta?: ResponseMeta }
   | { ok: false; error: string; status?: number }
 > {
-  const { getToken, page, limit, search } = options;
+  const { page, limit, search } = options;
   const result = await apiClient.get<ApiResponse<Category[]>>(API_ROUTES.CATEGORIES, {
-    getToken,
     query: { page, limit, search: search?.trim() },
-    fallbackError: API_FALLBACK_ERRORS.CATEGORIES_LOAD,
   });
   if (!result.ok) return result;
 
@@ -85,14 +72,10 @@ export async function fetchCategories(
 
 export async function fetchCategoryById(
   id: string,
-  options: Pick<CategoryOptions, 'getToken'> = {},
 ): Promise<{ ok: true; category: Category } | { ok: false; error: string; status?: number }> {
   const trimmed = id.trim();
   const url = `${API_ROUTES.CATEGORIES}/${encodeURIComponent(trimmed)}`;
-  const result = await apiClient.get<ApiResponse<Category>>(url, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.CATEGORY_LOAD,
-  });
+  const result = await apiClient.get<ApiResponse<Category>>(url);
   if (!result.ok) return result;
 
   return { ok: true, category: result.data.data };
@@ -101,18 +84,13 @@ export async function fetchCategoryById(
 export async function updateCategory(
   id: string,
   body: CategoryPayload,
-  options: Pick<CategoryOptions, 'getToken'> = {},
 ): Promise<{ ok: true; category: Category } | { ok: false; error: string; status?: number }> {
   const trimmed = id.trim();
   const url = `${API_ROUTES.CATEGORIES}/${encodeURIComponent(trimmed)}`;
-  const requestOptions = {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.CATEGORY_UPDATE,
-  };
 
-  let result = await apiClient.patch<unknown>(url, body, requestOptions);
+  let result = await apiClient.patch<unknown>(url, body);
   if (!result.ok && (result.status === 404 || result.status === 405)) {
-    result = await apiClient.put<unknown>(url, body, requestOptions);
+    result = await apiClient.put<unknown>(url, body);
   }
   if (!result.ok) return result;
 
@@ -121,7 +99,7 @@ export async function updateCategory(
     return { ok: true, category: parsed.data };
   }
 
-  const refetched = await fetchCategoryById(trimmed, options);
+  const refetched = await fetchCategoryById(trimmed);
   if (refetched.ok) {
     return { ok: true, category: refetched.category };
   }

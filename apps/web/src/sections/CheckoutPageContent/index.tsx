@@ -1,7 +1,5 @@
 'use client';
 
-// import { Lock } from 'lucide-react'
-import { useAuth as useClerkAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -10,7 +8,6 @@ import { CheckoutOrderSummary } from '@/components/CheckoutOrderSummary';
 import { CheckoutPaymentMethod } from '@/components/CheckoutPaymentMethod';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/ui/button';
-import { CLERK_SESSION_TEMPLATE } from '@/constants/common';
 import { ERROR_MESSAGES } from '@/constants/messages';
 import { CHECKOUT_PLACE_ORDER_BLOCKED_MESSAGE } from '@/constants/order';
 import { ROUTES } from '@/constants/routes';
@@ -61,7 +58,6 @@ const DEFAULT_VALUES: CheckoutFormValues = {
 
 const CheckoutPageContent = () => {
   const router = useRouter();
-  const { getToken } = useClerkAuth();
   const { user } = useAuth();
 
   const [values, setValues] = useState<CheckoutFormValues>(DEFAULT_VALUES);
@@ -108,7 +104,7 @@ const CheckoutPageContent = () => {
 
   const normalizedTotal = useMemo(() => checkoutTotals.total.toFixed(2), [checkoutTotals.total]);
   const initialUserValues = useMemo<AddressSnapshot>(() => {
-    const userAddress = user?.address;
+    const userAddress = user?.addresses?.[0];
 
     return {
       firstName: userAddress?.firstName ?? user?.firstName ?? '',
@@ -305,7 +301,6 @@ const CheckoutPageContent = () => {
     createOrder(
       {
         body: orderPayload,
-        getToken: () => getToken({ template: CLERK_SESSION_TEMPLATE }),
       },
       {
         onSuccess: (data) => {

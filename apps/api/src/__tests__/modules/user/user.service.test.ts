@@ -3,7 +3,7 @@ import { UserAddressRepository } from '@/modules/user/user-address.repository';
 import { User } from '@/modules/user/user.entity';
 import { UserRepository } from '@/modules/user/user.repository';
 import { ClerkUserFields, UserService } from '@/modules/user/user.service';
-import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 import { AppError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 

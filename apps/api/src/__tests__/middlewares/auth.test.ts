@@ -1,7 +1,7 @@
 import { StatusCodes } from 'http-status-codes';
 import type { NextFunction, Request, Response } from 'express';
 
-import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 import { AppError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';

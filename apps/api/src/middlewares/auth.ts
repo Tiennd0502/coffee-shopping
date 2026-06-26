@@ -3,7 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 import { userService } from '@/container';
-import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 import { AppError, ForbiddenError, UnauthorizedError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';

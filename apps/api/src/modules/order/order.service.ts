@@ -8,7 +8,7 @@ import { UserAddress } from '@/modules/user/user-address.entity';
 import { ORDER_CONSTANTS } from '@/shared/constants/order';
 import { DISCOUNT_TYPE } from '@/shared/enums/product';
 import { ORDER_STATUS } from '@/shared/enums/order';
-import { USER_STATUS } from '@/shared/enums/user';
+import { USER_STATUS } from '@repo/types';
 import { BadRequestError, ErrorItem, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';

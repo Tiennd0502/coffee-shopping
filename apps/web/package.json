@@ -43,6 +43,7 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@repo/types": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.9.1",

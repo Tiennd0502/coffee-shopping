@@ -4,7 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import { Product } from '@/modules/product/product.entity';
 import { ProductController } from '@/modules/product/product.v1.controller';
 import { PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
-import { USER_ROLE } from '@/shared/enums/user';
+import { USER_ROLE } from '@repo/types';
 import { ConflictError, NotFoundError } from '@/shared/errors/app';
 
 const PRODUCT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';

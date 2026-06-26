@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { VALIDATION_RULES } from '@/shared/constants/validation';
-import { USER_ROLE, USER_STATUS } from '@/shared/enums/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 
 const { EMAIL, NAME, PHONE, PAGINATION, IMAGE } = VALIDATION_RULES;
 

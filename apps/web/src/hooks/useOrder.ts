@@ -16,11 +16,8 @@ import type { Order, OrderPayload, ORDER_STATUS, SHIPPING_STATUS } from '@/types
 
 export function useCreateOrder() {
   return useMutation({
-    mutationFn: async (input: {
-      body: OrderPayload;
-      getToken?: () => Promise<string | null>;
-    }): Promise<Order> => {
-      const result = await createOrder(input.body, { getToken: input.getToken });
+    mutationFn: async (input: { body: OrderPayload }): Promise<Order> => {
+      const result = await createOrder(input.body);
       if (!result.ok) {
         throw Object.assign(new Error(result.error.message), {
           response: { data: result.error },
