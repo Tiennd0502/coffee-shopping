@@ -15,7 +15,7 @@ import {
   type FetchUsersOptions,
   updateUserById,
 } from '@/services/user';
-import type { User, USER_ROLES } from '@/types/user';
+import type { User, USER_ROLE } from '@repo/types';
 import { type ResponseMeta } from '@/types/api';
 
 export type UseUsersParams = FetchUsersOptions;
@@ -30,7 +30,7 @@ export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { id: string; role: USER_ROLES }) => {
+    mutationFn: async (input: { id: string; role: USER_ROLE }) => {
       const result = await updateUserById(input.id, input.role);
       if (!result.ok) {
         throw new Error(result.error);

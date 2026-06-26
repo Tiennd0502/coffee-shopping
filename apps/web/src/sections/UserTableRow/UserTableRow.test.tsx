@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 
 import { UserTableRow } from '@/sections/UserTableRow';
-import { USER_ROLES, USER_STATUS } from '@/types/user';
+import { USER_ROLE, USER_STATUS } from '@repo/types';
 
 const baseUser = {
   id: 'u-1',
@@ -10,7 +10,7 @@ const baseUser = {
   lastName: 'Lee',
   name: 'Pat Lee',
   avatarUrl: null,
-  role: USER_ROLES.USER,
+  role: USER_ROLE.USER,
   status: USER_STATUS.ACTIVE,
 };
 

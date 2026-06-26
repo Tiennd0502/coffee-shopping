@@ -5,7 +5,6 @@ import type { ApiErrorResponse, Response as ApiResponse, ResponseMeta } from '@/
 import type { Order, OrderPayload, ORDER_STATUS, SHIPPING_STATUS } from '@/types/order';
 
 export interface FetchOrdersOptions {
-  getToken?: () => Promise<string | null>;
   page?: number;
   limit?: number;
   search?: string;
@@ -26,12 +25,8 @@ const toApiErrorResponse = (input: {
 
 export async function createOrder(
   body: OrderPayload,
-  options: { getToken?: () => Promise<string | null> } = {},
 ): Promise<{ ok: true; order: Order } | { ok: false; error: ApiErrorResponse }> {
-  const result = await apiClient.post<Order>(API_ROUTES.ORDERS, body, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.ORDER_CREATE,
-  });
+  const result = await apiClient.post<Order>(API_ROUTES.ORDERS, body);
   if (!result.ok) {
     return {
       ok: false,
@@ -50,9 +45,8 @@ export async function fetchOrders(
 ): Promise<
   { ok: true; orders: Order[]; meta?: ResponseMeta } | { ok: false; error: ApiErrorResponse }
 > {
-  const { getToken, page, limit, search, status, shippingStatus } = options;
+  const { page, limit, search, status, shippingStatus } = options;
   const result = await apiClient.get<ApiResponse<Order[]>>(API_ROUTES.ORDERS, {
-    getToken,
     query: {
       page,
       limit,
@@ -60,7 +54,6 @@ export async function fetchOrders(
       status: status?.trim(),
       shippingStatus: shippingStatus?.trim(),
     },
-    fallbackError: API_FALLBACK_ERRORS.ORDERS_LOAD,
   });
   if (!result.ok) {
     return {
@@ -75,17 +68,13 @@ export async function fetchOrders(
 
 export async function deleteOrder(
   id: string,
-  options: { getToken?: () => Promise<string | null> } = {},
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const orderId = id.trim();
   if (!orderId) {
     return { ok: false, error: API_FALLBACK_ERRORS.ORDER_DELETE };
   }
 
-  const result = await apiClient.delete(`${API_ROUTES.ORDERS}/${orderId}`, {
-    getToken: options.getToken,
-    fallbackError: API_FALLBACK_ERRORS.ORDER_DELETE,
-  });
+  const result = await apiClient.delete(`${API_ROUTES.ORDERS}/${orderId}`);
   if (!result.ok) {
     return result;
   }
@@ -96,21 +85,13 @@ export async function deleteOrder(
 export async function updateOrderStatus(
   id: string,
   status: ORDER_STATUS,
-  options: { getToken?: () => Promise<string | null> } = {},
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const orderId = id.trim();
   if (!orderId) {
     return { ok: false, error: API_FALLBACK_ERRORS.ORDER_STATUS_UPDATE };
   }
 
-  const result = await apiClient.patch(
-    `${API_ROUTES.ORDERS}/${orderId}/status`,
-    { status },
-    {
-      getToken: options.getToken,
-      fallbackError: API_FALLBACK_ERRORS.ORDER_STATUS_UPDATE,
-    },
-  );
+  const result = await apiClient.patch(`${API_ROUTES.ORDERS}/${orderId}/status`, { status });
   if (!result.ok) return result;
 
   return { ok: true };
@@ -119,7 +100,6 @@ export async function updateOrderStatus(
 export async function updateOrderShippingStatus(
   id: string,
   shippingStatus: SHIPPING_STATUS,
-  options: { getToken?: () => Promise<string | null> } = {},
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const orderId = id.trim();
   if (!orderId) {
@@ -129,14 +109,9 @@ export async function updateOrderShippingStatus(
     };
   }
 
-  const result = await apiClient.patch(
-    `${API_ROUTES.ORDERS}/${orderId}/shipping-status`,
-    { shippingStatus },
-    {
-      getToken: options.getToken,
-      fallbackError: API_FALLBACK_ERRORS.ORDER_SHIPPING_STATUS_UPDATE,
-    },
-  );
+  const result = await apiClient.patch(`${API_ROUTES.ORDERS}/${orderId}/shipping-status`, {
+    shippingStatus,
+  });
   if (!result.ok) return result;
 
   return { ok: true };

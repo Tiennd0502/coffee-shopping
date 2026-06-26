@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { USER_ROLE } from '@/shared/enums/user';
+import { USER_ROLE } from '@repo/types';
 
 import { parseOrThrow } from '@/shared/utils/validation';
 

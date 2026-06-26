@@ -1,5 +1,5 @@
 import { type AddressSnapshot, type PaymentMethod } from './checkout';
-import { type User } from './user';
+import { type User } from '@repo/types';
 
 export enum ORDER_STATUS {
   PENDING = 'PENDING',

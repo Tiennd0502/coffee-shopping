@@ -5,7 +5,7 @@ import { WebhookEvent } from '@clerk/express';
 import { verifyClerkWebhook } from '@/config/clerk';
 import { createModuleLogger } from '@/config/logger';
 import type { UserService, ClerkUserFields } from '@/modules/user/user.service';
-import { USER_ROLE } from '@/shared/enums/user';
+import { USER_ROLE } from '@repo/types';
 import { BadRequestError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import type { RawBodyRequest } from '@/shared/types/request';

@@ -4,7 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import { Category } from '@/modules/category/category.entity';
 import { CategoryController } from '@/modules/category/category.v1.controller';
 import { ConflictError, NotFoundError } from '@/shared/errors/app';
-import { USER_ROLE } from '@/shared/enums/user';
+import { USER_ROLE } from '@repo/types';
 
 const CATEGORY_ID = 'c56a4180-65aa-4266-a945-5fd21dec0538';
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000';

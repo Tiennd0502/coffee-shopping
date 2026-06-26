@@ -5,7 +5,6 @@ import { Coffee, Filter, Pencil } from 'lucide-react';
 import { useUser as useClerkUser } from '@clerk/nextjs';
 
 // Types
-import type { ClerkUser } from '@/types/user';
 import { type Order } from '@/types/order';
 
 // Constants
@@ -15,9 +14,6 @@ import { DEFAULT_AVATAR } from '@/constants/images';
 // Hooks
 import { useAuth } from '@/hooks/useAuth';
 import { useOrders } from '@/hooks/useOrder';
-
-// Utils
-import { resolveProfilePresentation } from '@/utils/api';
 
 // Components
 import Table from '@/components/Table';
@@ -29,19 +25,17 @@ import { ProfileAccountDialogs } from './ProfileAccountDialogs';
 import Loading from '@/components/Loading';
 
 export function ProfilePageView() {
-  const { user: apiUser, error, isSignedIn, isAuthLoaded } = useAuth();
-  const { user: clerkUser, isLoaded: clerkLoaded } = useClerkUser();
+  const { user, error, isSignedIn, isAuthLoaded } = useAuth();
+  const { user: clerkUser } = useClerkUser();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const { orders, isLoading, isError, errorMessage, refetch } = useOrders({
     page: 1,
     limit: 10,
   });
 
-  const { displayName, email, imageSrc } = resolveProfilePresentation(
-    apiUser,
-    (clerkLoaded ? clerkUser : apiUser) as ClerkUser,
-    DEFAULT_AVATAR,
-  );
+  const displayName = clerkUser?.fullName ?? `${user?.firstName} ${user?.lastName}`;
+  const email = clerkUser?.primaryEmailAddress?.emailAddress ?? user?.email ?? '';
+  const imageSrc = clerkUser?.imageUrl ?? user?.avatarUrl ?? DEFAULT_AVATAR;
 
   return (
     <div className="bg-background text-on-background">

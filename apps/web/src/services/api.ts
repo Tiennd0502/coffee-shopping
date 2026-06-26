@@ -1,14 +1,10 @@
 import { ERROR_MESSAGES } from '@/constants/messages';
 import type { ApiErrorResponse } from '@/types/api';
 
-type TokenGetter = () => Promise<string | null>;
-
 type QueryValue = string | number | boolean | null | undefined;
 
 export interface ApiRequestOptions {
-  getToken?: TokenGetter;
   query?: Record<string, QueryValue>;
-  fallbackError: string;
 }
 
 export type ApiResult<T> =
@@ -86,15 +82,8 @@ export class ApiClient {
     return { message: fallback };
   }
 
-  private async createHeaders(
-    getToken?: TokenGetter,
-    options?: { jsonBody?: boolean },
-  ): Promise<Headers> {
+  private async createHeaders(options?: { jsonBody?: boolean }): Promise<Headers> {
     const headers = new Headers({ Accept: 'application/json' });
-    const token = getToken ? await getToken() : null;
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
     if (options?.jsonBody) {
       headers.set('Content-Type', 'application/json');
     }
@@ -105,20 +94,14 @@ export class ApiClient {
     url,
     method = 'GET',
     body,
-    fallbackError,
-    getToken,
     query,
-    parseSuccess,
   }: {
     url: string;
     method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
     body?: unknown;
-    fallbackError: string;
-    getToken?: TokenGetter;
     query?: Record<string, QueryValue>;
-    parseSuccess: (response: globalThis.Response) => Promise<TResponse>;
   }): Promise<ApiResult<TResponse>> {
-    const headers = await this.createHeaders(getToken, {
+    const headers = await this.createHeaders({
       jsonBody: body !== undefined,
     });
     const requestUrl = this.buildUrlWithQuery(url, query);
@@ -132,10 +115,7 @@ export class ApiClient {
       });
 
       if (!response.ok) {
-        const errorPayload = await this.readErrorPayload(
-          response,
-          `${fallbackError} (${response.status})`,
-        );
+        const errorPayload = await this.readErrorPayload(response, response.statusText);
 
         return {
           ok: false,
@@ -145,7 +125,7 @@ export class ApiClient {
         };
       }
 
-      const data = await parseSuccess(response);
+      const data = await response.json();
       return { ok: true, data, status: response.status };
     } catch (error) {
       return {
@@ -155,112 +135,43 @@ export class ApiClient {
     }
   }
 
-  async get<T>(url: string, options: ApiRequestOptions): Promise<ApiResult<T>> {
-    const { getToken, query, fallbackError } = options;
+  async get<T>(url: string, options?: ApiRequestOptions): Promise<ApiResult<T>> {
+    const query = options?.query ?? {};
 
     return this.request<T>({
       url,
-      getToken,
       query,
-      fallbackError,
-      parseSuccess: async (response) => (await response.json()) as T,
     });
   }
 
-  async post<TResponse>(
-    url: string,
-    body: unknown,
-    options: Omit<ApiRequestOptions, 'query'>,
-  ): Promise<ApiResult<TResponse>> {
-    const { getToken, fallbackError } = options;
-
+  async post<TResponse>(url: string, body: unknown): Promise<ApiResult<TResponse>> {
     return this.request<TResponse>({
       url,
       method: 'POST',
       body,
-      getToken,
-      fallbackError,
-      parseSuccess: async (response) => {
-        try {
-          return (await response.json()).data as TResponse;
-        } catch {
-          return {} as TResponse;
-        }
-      },
     });
   }
 
-  async patch<TResponse>(
-    url: string,
-    body: unknown,
-    options: Omit<ApiRequestOptions, 'query'>,
-  ): Promise<ApiResult<TResponse>> {
-    const { getToken, fallbackError } = options;
-
+  async patch<TResponse>(url: string, body: unknown): Promise<ApiResult<TResponse>> {
     return this.request<TResponse>({
       url,
       method: 'PATCH',
       body,
-      getToken,
-      fallbackError,
-      parseSuccess: async (response) => {
-        try {
-          return (await response.json()) as TResponse;
-        } catch {
-          return {} as TResponse;
-        }
-      },
     });
   }
 
-  async put<TResponse>(
-    url: string,
-    body: unknown,
-    options: Omit<ApiRequestOptions, 'query'>,
-  ): Promise<ApiResult<TResponse>> {
-    const { getToken, fallbackError } = options;
-
+  async put<TResponse>(url: string, body: unknown): Promise<ApiResult<TResponse>> {
     return this.request<TResponse>({
       url,
       method: 'PUT',
       body,
-      getToken,
-      fallbackError,
-      parseSuccess: async (response) => {
-        try {
-          return (await response.json()) as TResponse;
-        } catch {
-          return {} as TResponse;
-        }
-      },
     });
   }
 
-  async delete(
-    url: string,
-    options: Omit<ApiRequestOptions, 'query'>,
-  ): Promise<ApiResult<undefined>> {
-    const { getToken, fallbackError } = options;
-
+  async delete(url: string): Promise<ApiResult<undefined>> {
     return this.request<undefined>({
       url,
       method: 'DELETE',
-      getToken,
-      fallbackError,
-      parseSuccess: async (response) => {
-        const raw = await response.text();
-        if (!raw.trim()) {
-          return undefined;
-        }
-
-        try {
-          JSON.parse(raw) as unknown;
-        } catch {
-          // Ignore non-JSON success bodies.
-        }
-
-        return undefined;
-      },
     });
   }
 }

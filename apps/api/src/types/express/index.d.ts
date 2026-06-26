@@ -1,4 +1,4 @@
-import type { USER_ROLE } from '@/shared/enums/user';
+import type { USER_ROLE } from '@repo/types';
 
 declare global {
   namespace Express {

@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-import { ROLES } from '@/constants/user';
+import { USER_ROLE } from '@repo/types';
 import { ROUTES } from '@/constants/routes';
 import { getSessionPublicRole } from '@/utils/session';
 
@@ -27,7 +27,7 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   const role = getSessionPublicRole(sessionClaims);
-  if (role !== ROLES.ADMIN) {
+  if (role !== USER_ROLE.ADMIN) {
     return NextResponse.redirect(new URL(ROUTES.HOME, request.url));
   }
 
