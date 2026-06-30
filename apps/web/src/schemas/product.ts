@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { ERROR_MESSAGES } from '@/constants/messages';
-import { DISCOUNT_TYPE, PRODUCT_UNIT, ROAST_LEVEL } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
 
 const nonNegativeNumber = (field: string) =>
   z.number({ error: field }).refine((value) => Number.isFinite(value) && value >= 0, {

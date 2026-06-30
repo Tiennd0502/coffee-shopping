@@ -95,7 +95,7 @@ const OrderSuccessPageContent = () => {
                     <Image
                       src={item.productImage}
                       alt={item.productName}
-                      fill
+                      fill={true}
                       className="object-cover"
                       sizes="64px"
                     />

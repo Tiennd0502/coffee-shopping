@@ -5,29 +5,39 @@ import Link from 'next/link';
 import { Download, Plus, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
-import AlertDialog from '@/components/AlertDialog';
-import Breadcrumb from '@/components/Breadcrumb';
-import { PaginationBar } from '@/components/Pagination';
-import { SearchInput } from '@/components/SearchInput';
-import Table from '@/components/Table';
-import { Button, buttonVariants } from '@/components/ui/button';
+// Types
+import { PRODUCT_STATUS } from '@repo/types';
+import type { Product } from '@/types/product';
+
+// Constants
 import { SEARCH_URL_DEBOUNCE_MS } from '@/constants/common';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
 import { PRODUCT_STATUS_OPTIONS, PRODUCTS_TABLE_COLUMNS } from '@/constants/product';
 import { ROUTES } from '@/constants/routes';
 import { CATEGORY_QUERY_OPTIONS } from '@/constants/category';
+
+// Hooks
 import { useCategories } from '@/hooks/useCategory';
 import { useDeleteProduct, useProducts } from '@/hooks/useProduct';
-import { ProductDeletePreview } from '@/sections/ProductDeletePreview';
-import { ProductTableRow } from '@/sections/ProductTableRow';
+import { useUrlState } from '@/hooks/useUrlState';
+
+// Utils
 import { getProductListPrice, getProductPrimaryImageUrl } from '@/utils/product';
 import { getCategoryOptions } from '@/utils/common';
 import { productUrlSchema } from '@/utils/url';
 import { cn } from '@/utils/styles';
-import { useUrlState } from '@/hooks/useUrlState';
-import { Select } from '@/components/Select';
-import { PRODUCT_STATUS, type Product } from '@/types/product';
+
+// Components
+import AlertDialog from '@/components/AlertDialog';
+import Breadcrumb from '@/components/Breadcrumb';
+import { PaginationBar } from '@/components/Pagination';
+import { SearchInput } from '@/components/SearchInput';
+import Table from '@/components/Table';
 import Loading from '@/components/Loading';
+import { Select } from '@/components/Select';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { ProductDeletePreview } from '@/sections/ProductDeletePreview';
+import { ProductTableRow } from '@/sections/ProductTableRow';
 
 const ALL_CATEGORIES_VALUE = 'all-categories';
 
@@ -39,7 +49,8 @@ export const PageContent = () => {
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
   const { mutate: deleteProductMutate, isPending: isDeletePending } = useDeleteProduct();
 
-  const { categories, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const { data: { data: categories = [] } = {}, isLoading: isCategoryLoading } =
+    useCategories(CATEGORY_QUERY_OPTIONS);
   const activeCategories = categories.filter((category) => !category.deletedAt);
 
   const categoryOptions = [
@@ -58,17 +69,18 @@ export const PageContent = () => {
       ? status
       : null;
 
-  const { products, meta, isLoading, isError, errorMessage, refetch } = useProducts({
+  const { data, isLoading, isError, error, refetch } = useProducts({
     page,
     limit,
     search: search.trim(),
     categoryId: normalizedCategoryId ?? undefined,
     status: normalizedStatus ?? undefined,
   });
+  const { data: products = [], meta } = data ?? {};
 
   const totalPages = Math.max(1, meta?.pageCount ?? 1);
-  const totalCount = meta?.totalCount ?? products.length;
-  const showingCount = products.length;
+  const totalCount = meta?.totalCount ?? products?.length ?? 0;
+  const showingCount = products?.length ?? 0;
 
   const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextSearch = event.target.value;
@@ -231,7 +243,7 @@ export const PageContent = () => {
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <p className="text-muted-foreground">{errorMessage}</p>
+            <p className="text-muted-foreground first-letter:uppercase">{error?.message}</p>
             <Button
               className="w-fit px-6"
               variant="destructive"

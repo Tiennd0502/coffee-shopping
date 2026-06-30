@@ -4,33 +4,34 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'sonner';
 
-import { CheckoutOrderSummary } from '@/components/CheckoutOrderSummary';
-import { CheckoutPaymentMethod } from '@/components/CheckoutPaymentMethod';
-import { Input } from '@/components/Input';
-import { Button } from '@/components/ui/button';
-import { ERROR_MESSAGES } from '@/constants/messages';
-import { CHECKOUT_PLACE_ORDER_BLOCKED_MESSAGE } from '@/constants/order';
-import { ROUTES } from '@/constants/routes';
-import { useAuth } from '@/hooks/useAuth';
-import { useCreateOrder } from '@/hooks/useOrder';
-import { parseCheckoutValues } from '@/schemas/checkout';
-import {
-  findMapboxAddressSuggestions,
-  mapboxFeatureToCheckoutAddress,
-  type MapboxAddressSuggestion,
-} from '@/services/mapboxGeocode';
-import { useCartStore } from '@/store/useCartStore';
+// Types
 import type { ApiErrorResponse } from '@/types/api';
 import type { CartTotals } from '@/types/cart';
+import type { OrderPayload } from '@/types/order';
 import {
   PAYMENT_METHOD,
   type CheckoutFormValues,
   type AddressSnapshot,
   type PaymentMethod,
 } from '@/types/checkout';
-import Loading from '@/components/Loading';
-import type { OrderPayload } from '@/types/order';
+
+// Constants
+import { ERROR_MESSAGES } from '@/constants/messages';
+import { CHECKOUT_PLACE_ORDER_BLOCKED_MESSAGE } from '@/constants/order';
+import { ROUTES } from '@/constants/routes';
 import { DELIVERY_SPEED } from '@/constants/order';
+
+// Hooks | Stores
+import { useAuth } from '@/hooks/useAuth';
+import { useCreateOrder } from '@/hooks/useOrder';
+import {
+  findMapboxAddressSuggestions,
+  mapboxFeatureToCheckoutAddress,
+  type MapboxAddressSuggestion,
+} from '@/services/mapboxGeocode';
+import { useCartStore } from '@/store/useCartStore';
+
+// Utils
 import {
   mapItemFieldErrorsToLineIdMessages,
   omitSubmitErrorsForRemovedLine,
@@ -38,6 +39,14 @@ import {
 } from '@/utils/order';
 import { formatPrice } from '@/utils/common';
 import { isCartItemOutOfStock } from '@/utils/inventory';
+import { parseCheckoutValues } from '@/schemas/checkout';
+
+// Components
+import { CheckoutOrderSummary } from '@/components/CheckoutOrderSummary';
+import { CheckoutPaymentMethod } from '@/components/CheckoutPaymentMethod';
+import { Input } from '@/components/Input';
+import { Button } from '@/components/ui/button';
+import Loading from '@/components/Loading';
 
 type CheckoutFieldErrors = Partial<Record<keyof CheckoutFormValues, string>>;
 
@@ -304,6 +313,7 @@ const CheckoutPageContent = () => {
       },
       {
         onSuccess: (data) => {
+          if (!data) return;
           setItemSnapshots(data);
           setSubmitErrors(null);
           toast.success('Order placed successfully', {

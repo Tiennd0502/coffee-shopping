@@ -1,9 +1,27 @@
-import {
-  type ROAST_LEVEL,
-  type PRODUCT_UNIT,
-  type DISCOUNT_TYPE,
-  type PRODUCT_STATUS,
-} from '@repo/types';
+export enum ROAST_LEVEL {
+  LIGHT = "LIGHT",
+  MEDIUM = "MEDIUM",
+  DARK = "DARK",
+}
+
+export enum PRODUCT_UNIT {
+  KG = "KG",
+  G = "G",
+  L = "L",
+  ML = "ML",
+}
+
+export enum DISCOUNT_TYPE {
+  PERCENT = "PERCENT",
+  FIXED = "FIXED",
+}
+
+export enum PRODUCT_STATUS {
+  DRAFT = "DRAFT",
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  ARCHIVED = "ARCHIVED",
+}
 
 export interface ProductVariantPayload {
   id?: string;
@@ -60,7 +78,10 @@ export interface ProductPayload {
   images: ProductImagePayload[];
 }
 
-export interface ProductUpdatePayload extends Omit<ProductPayload, 'images' | 'variants'> {
+export interface ProductUpdatePayload extends Omit<
+  ProductPayload,
+  "images" | "variants"
+> {
   addImages: ProductImagePayload[];
   removeImageIds: string[];
   updateImages: ProductImageUpdatePayload[];
@@ -92,7 +113,7 @@ export interface ProductFormValues {
   isOrganic: boolean;
   isFairTrade: boolean;
   weight: number;
-  unit: PRODUCT_UNIT | '';
+  unit: PRODUCT_UNIT | "";
   price: number;
   discountType: DISCOUNT_TYPE;
   discountValue: number;

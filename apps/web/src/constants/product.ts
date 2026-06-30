@@ -1,4 +1,4 @@
-import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT } from '@repo/types';
 import type { TableColumn } from '@/components/Table';
 
 export const UNIT_OPTIONS: {

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 // Types
 import type { ProductFormValues, ProductImagePayload, ProductPayload } from '@/types/product';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
 
 // Constants
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
@@ -97,7 +97,8 @@ const parseFormNumber = (value: unknown): number | undefined => {
 
 const PageContent = () => {
   const { mutate, isPending } = useCreateProduct();
-  const { categories, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const { data, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const { data: categories = [] } = data ?? {};
   const activeCategories = categories.filter((category) => !category.deletedAt);
   const [avatarImage, setAvatarImage] = useState<LocalImage | null>(null);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);

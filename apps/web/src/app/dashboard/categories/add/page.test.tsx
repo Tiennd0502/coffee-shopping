@@ -72,6 +72,8 @@ describe('AddCategoryPage', () => {
     const user = userEvent.setup();
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
+      status: 200,
+      headers: new Headers(),
       json: async () => ({ data: mockCategory }),
     });
 

@@ -7,14 +7,21 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
+// Types
+import type { CategoryPayload } from '@/types/category';
+import { createCategoryFormSchema } from '@/schemas/category';
+
+// Constants
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
+import { ROUTES, dashboardCategoryEditRoute } from '@/constants/routes';
+
+// Hooks
+import { useCategoryById, useUpdateCategory } from '@/hooks/useCategory';
+
+// Components
 import Breadcrumb from '@/components/Breadcrumb';
 import Loading from '@/components/Loading';
 import { Button } from '@/components/ui/button';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
-import { ROUTES, dashboardCategoryEditRoute } from '@/constants/routes';
-import { useCategoryById, useUpdateCategory } from '@/hooks/useCategory';
-import { createCategoryFormSchema } from '@/schemas/category';
-import type { CategoryPayload } from '@/types/category';
 import { Input } from '@/components/Input';
 
 const EditCategory = () => {
@@ -23,7 +30,10 @@ const EditCategory = () => {
   const rawId = params?.id;
   const categoryId = Array.isArray(rawId) ? (rawId[0] ?? '') : (rawId ?? '');
 
-  const { category, isLoading, isError, errorMessage } = useCategoryById(categoryId);
+  const { data, isLoading, isError, error } = useCategoryById(categoryId);
+  const { data: category } = data ?? {};
+  const { name = '' } = category ?? {};
+
   const { mutate, isPending } = useUpdateCategory();
 
   const {
@@ -35,12 +45,12 @@ const EditCategory = () => {
     formState: { errors, isDirty },
   } = useForm<CategoryPayload>({
     resolver: zodResolver(createCategoryFormSchema),
-    defaultValues: { name: category?.name ?? '' },
+    defaultValues: { name },
   });
 
   useEffect(() => {
     if (!category) return;
-    reset({ name: category.name ?? '' });
+    reset({ name: name });
   }, [category, reset]);
 
   const onSubmit = (data: CategoryPayload) => {
@@ -52,6 +62,7 @@ const EditCategory = () => {
         onSuccess: () => {
           toast.success(SUCCESS_MESSAGES.CATEGORY_UPDATED);
           router.push(ROUTES.DASHBOARD_CATEGORIES);
+          reset();
         },
         onError: (error) => {
           const message = error instanceof Error ? error.message : ERROR_MESSAGES.NETWORK_ERROR;
@@ -78,7 +89,9 @@ const EditCategory = () => {
   if (isError) {
     return (
       <div className="flex flex-col gap-4 px-6 py-12">
-        <p className="text-destructive">{errorMessage ?? ERROR_MESSAGES.NETWORK_ERROR}</p>
+        <p className="text-destructive first-letter:uppercase">
+          {error?.message ?? ERROR_MESSAGES.NETWORK_ERROR}
+        </p>
         <Link href={ROUTES.DASHBOARD_CATEGORIES} className="w-fit text-primary underline">
           Back to categories
         </Link>

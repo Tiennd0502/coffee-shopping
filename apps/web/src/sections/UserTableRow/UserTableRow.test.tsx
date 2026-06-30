@@ -9,7 +9,7 @@ const baseUser = {
   firstName: 'Pat',
   lastName: 'Lee',
   name: 'Pat Lee',
-  avatarUrl: null,
+  avatarUrl: '',
   role: USER_ROLE.USER,
   status: USER_STATUS.ACTIVE,
 };

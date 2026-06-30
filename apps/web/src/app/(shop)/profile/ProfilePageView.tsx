@@ -28,10 +28,17 @@ export function ProfilePageView() {
   const { user, error, isSignedIn, isAuthLoaded } = useAuth();
   const { user: clerkUser } = useClerkUser();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const { orders, isLoading, isError, errorMessage, refetch } = useOrders({
+  const {
+    data,
+    isLoading,
+    isError,
+    error: ordersError,
+    refetch,
+  } = useOrders({
     page: 1,
     limit: 10,
   });
+  const { data: orders = [] } = data ?? {};
 
   const displayName = clerkUser?.fullName ?? `${user?.firstName} ${user?.lastName}`;
   const email = clerkUser?.primaryEmailAddress?.emailAddress ?? user?.email ?? '';
@@ -155,7 +162,7 @@ export function ProfilePageView() {
               <div className="px-8 py-8 text-center">
                 <div className="flex flex-col items-center gap-3">
                   <p className="text-sm text-destructive" role="alert">
-                    {errorMessage ?? 'Unable to load order history.'}
+                    {ordersError?.message ?? 'Unable to load order history.'}
                   </p>
                   <Button
                     type="button"

@@ -1,200 +1,89 @@
 'use client';
 
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type QueryClient,
-} from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { LIST_QUERY_GC_MS, LIST_QUERY_STALE_MS, PAGE_SIZE } from '@/constants/common';
-import {
-  createCategory,
-  deleteCategory,
-  fetchCategoryById,
-  fetchCategories,
-  updateCategory,
-  type CategoryOptions,
-} from '@/services/category';
+// Types
 import type { Category, CategoryPayload } from '@/types/category';
-import type { ResponseMeta } from '@/types/api';
+import type { QueryParams, PaginatedResponse, ResponsSuccess } from '@repo/types';
 
-export interface UseCategoriesResult {
-  categories: Category[];
-  meta: ResponseMeta | null;
-  isLoading: boolean;
-  isError: boolean;
-  errorMessage: string | null;
-  refetch: () => Promise<void>;
-}
+// Constants
+import { LIST_QUERY_GC_MS, LIST_QUERY_STALE_MS, PAGE_SIZE } from '@/constants/common';
+import { API_ROUTES } from '@/constants/routes';
 
-export function categoriesListQueryKey(params: CategoryOptions) {
-  return [
-    'categories',
-    'list',
-    params.page ?? 1,
-    params.limit ?? PAGE_SIZE,
-    params.search ?? '',
-  ] as const;
-}
+// Services
+import { apiClient } from '@/services/api';
 
-const categoriesQueryRoot = ['categories'] as const;
-
-const listQueryOptions = {
-  staleTime: LIST_QUERY_STALE_MS,
-  gcTime: LIST_QUERY_GC_MS,
-  placeholderData: keepPreviousData,
-} as const;
-
-const detailQueryOptions = {
-  staleTime: LIST_QUERY_STALE_MS,
-  gcTime: LIST_QUERY_GC_MS,
-} as const;
-
-export function categoryDetailQueryKey(id: string) {
-  return ['categories', 'detail', id] as const;
-}
-
-function invalidateCategoryLists(queryClient: QueryClient) {
-  return queryClient.invalidateQueries({ queryKey: categoriesQueryRoot });
-}
-
-function throwIfServiceFailed(result: { ok: false; error: string }): never {
-  throw new Error(result.error);
-}
-
-export const useCategories = (params: CategoryOptions = {}): UseCategoriesResult => {
-  const query = useQuery({
-    queryKey: categoriesListQueryKey(params),
-    queryFn: async () => {
-      const result = await fetchCategories(params);
-      if (!result.ok) throwIfServiceFailed(result);
-
-      return {
-        categories: result.categories,
-        meta: result.meta ?? null,
-      };
-    },
-    ...listQueryOptions,
+export const useCategories = (params: QueryParams) => {
+  const { page, limit, search } = params;
+  return useQuery({
+    queryKey: ['categories', 'list', page ?? 1, limit ?? PAGE_SIZE, search ?? ''],
+    queryFn: () =>
+      apiClient.get<PaginatedResponse<Category[]>>(API_ROUTES.CATEGORIES, {
+        query: { page, limit, search: search?.trim() },
+      }),
+    staleTime: LIST_QUERY_STALE_MS,
+    gcTime: LIST_QUERY_GC_MS,
+    placeholderData: keepPreviousData,
   });
-
-  return {
-    categories: query.data?.categories ?? [],
-    meta: query.data?.meta ?? null,
-    isLoading: !query.data && query.isFetching,
-    isError: query.isError,
-    errorMessage:
-      query.isError && query.error instanceof Error
-        ? query.error.message
-        : query.isError
-          ? String(query.error)
-          : null,
-    refetch: async () => {
-      await query.refetch();
-    },
-  };
 };
 
 export function useCreateCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (body: CategoryPayload) => {
-      const result = await createCategory(body);
-      if (!result.ok) throwIfServiceFailed(result);
-      return result.category;
-    },
+    mutationFn: (payload: CategoryPayload) =>
+      apiClient.post<ResponsSuccess<Category>>(API_ROUTES.CATEGORIES, payload),
     onSuccess: () => {
-      void invalidateCategoryLists(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
-}
-
-interface CategoriesListCache {
-  categories: Category[];
-  meta: ResponseMeta | null;
 }
 
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const result = await deleteCategory(id);
-      if (!result.ok) throwIfServiceFailed(result);
-    },
+    mutationFn: (id: string) => apiClient.delete(`${API_ROUTES.CATEGORIES}/${id}`),
     onSuccess: async (_result, deletedId) => {
-      queryClient.setQueriesData<CategoriesListCache>(
+      queryClient.setQueriesData<PaginatedResponse<Category[]>>(
         { queryKey: ['categories', 'list'] },
         (old) => {
           if (!old) return old;
-          const categories = old.categories.filter((c) => c.id !== deletedId);
-          if (categories.length === old.categories.length) return old;
-          const meta = old.meta
-            ? {
-                ...old.meta,
-                totalCount: Math.max(0, old.meta.totalCount - 1),
-              }
-            : null;
-          return { categories, meta };
+
+          const data = old.data.filter((c) => c.id !== deletedId);
+          if (data.length === old.data.length) return old;
+
+          return {
+            ...old,
+            data,
+            meta: {
+              ...old.meta,
+              totalCount: Math.max(0, old.meta.totalCount - 1),
+            },
+          };
         },
       );
-      await invalidateCategoryLists(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 }
 
-export interface UseCategoryByIdResult {
-  category: Category | null;
-  isLoading: boolean;
-  isError: boolean;
-  errorMessage: string | null;
-  refetch: () => Promise<void>;
-}
-
-export function useCategoryById(id: string): UseCategoryByIdResult {
-  const query = useQuery({
-    queryKey: categoryDetailQueryKey(id),
-    queryFn: async () => {
-      const result = await fetchCategoryById(id);
-      if (!result.ok) throwIfServiceFailed(result);
-      return result.category;
-    },
+export const useCategoryById = (id: string) =>
+  useQuery({
+    queryKey: ['categories', 'detail', id],
+    queryFn: () => apiClient.get<ResponsSuccess<Category>>(`${API_ROUTES.CATEGORIES}/${id}`),
     enabled: Boolean(id?.trim()),
-    ...detailQueryOptions,
+    staleTime: LIST_QUERY_STALE_MS,
+    gcTime: LIST_QUERY_GC_MS,
   });
-
-  return {
-    category: query.data ?? null,
-    isLoading: !query.data && query.isFetching,
-    isError: query.isError,
-    errorMessage:
-      query.isError && query.error instanceof Error
-        ? query.error.message
-        : query.isError
-          ? String(query.error)
-          : null,
-    refetch: async () => {
-      await query.refetch();
-    },
-  };
-}
 
 export function useUpdateCategory() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (input: { id: string; body: CategoryPayload }) => {
-      const result = await updateCategory(input.id, input.body);
-      if (!result.ok) throwIfServiceFailed(result);
-      return result.category;
-    },
-    onSuccess: (_data, variables) => {
-      void invalidateCategoryLists(queryClient);
-      void queryClient.invalidateQueries({
-        queryKey: categoryDetailQueryKey(variables.id.trim()),
-      });
+    mutationFn: ({ id, body }: { id: string; body: CategoryPayload }) =>
+      apiClient.patch<ResponsSuccess<Category>>(`${API_ROUTES.CATEGORIES}/${id}`, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 }

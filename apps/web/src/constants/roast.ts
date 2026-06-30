@@ -1,5 +1,5 @@
 import { type OptionItem } from '@/types/common';
-import { ROAST_LEVEL } from '@/types/product';
+import { ROAST_LEVEL } from '@repo/types';
 
 export const ROAST_PRICE_MIN = 5;
 export const ROAST_PRICE_MAX = 250;

@@ -26,8 +26,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
       email: 'elena@example.com',
       firstName: 'Elena',
       lastName: 'Vance',
-      name: 'Elena Vance',
-      avatarUrl: null,
+      avatarUrl: '',
     },
     addressSnapshot: {
       firstName: 'Elena',

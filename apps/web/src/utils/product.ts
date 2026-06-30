@@ -3,14 +3,14 @@ import { OUT_OF_STOCK_LABEL } from '@/constants/order';
 import { type RoastCollection } from '@/constants/roast';
 import type { EditProductFormValues } from '@/schemas/product';
 import {
-  DISCOUNT_TYPE,
-  ROAST_LEVEL,
   type Product,
   type ProductFormValues,
   type ProductImage,
   type ProductImagePayload,
   type ProductImageUpdatePayload,
 } from '@/types/product';
+
+import { DISCOUNT_TYPE, ROAST_LEVEL } from '@repo/types';
 import { getPrimaryVariantQuantity } from '@/utils/inventory';
 
 export const LOW_STOCK_THRESHOLD = 10;

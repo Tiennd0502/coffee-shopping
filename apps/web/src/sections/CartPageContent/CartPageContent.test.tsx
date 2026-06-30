@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -11,13 +11,6 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/store/useCartStore', () => ({
   useCartStore: jest.fn(),
-}));
-
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: ({ alt, src, ...rest }: React.ImgHTMLAttributes<HTMLImageElement> & { src: string }) => (
-    <img alt={alt ?? ''} src={src} {...rest} />
-  ),
 }));
 
 const mockUseRouter = jest.mocked(useRouter);
@@ -71,14 +64,16 @@ describe('CartPageContent', () => {
     mockUseCart.mockReturnValue(baseUseCartResult);
   });
 
-  it('renders heading and line items in success state', () => {
+  it('renders heading and line items in success state', async () => {
     render(<CartPageContent />);
 
-    expect(screen.getByRole('heading', { name: 'Your Sensory Cart' })).toBeInTheDocument();
-    expect(screen.getByText('Ethiopian Yirgacheffe')).toBeInTheDocument();
-    expect(screen.getByText('Precision Gooseneck Kettle')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Order Summary' })).toBeInTheDocument();
-    expect(screen.getAllByText('$169.00')).toHaveLength(2);
+    await act(async () => {
+      expect(screen.getByRole('heading', { name: 'Your Sensory Cart' })).toBeInTheDocument();
+      expect(screen.getByText('Ethiopian Yirgacheffe')).toBeInTheDocument();
+      expect(screen.getByText('Precision Gooseneck Kettle')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Order Summary' })).toBeInTheDocument();
+      expect(screen.getAllByText('$169.00')).toHaveLength(2);
+    });
   });
 
   it('shows loading state while cart is hydrating', () => {

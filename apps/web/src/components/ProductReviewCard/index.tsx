@@ -20,7 +20,13 @@ export function ProductReviewCard({ review, className }: ProductReviewCardProps)
     >
       <div className="flex gap-4">
         <div className="relative size-12 shrink-0 overflow-hidden rounded-full border border-primary/10 bg-surface-container-high">
-          <Image src={DEFAULT_AVATAR} alt="" fill className="object-cover" sizes="48px" />
+          <Image
+            src={DEFAULT_AVATAR}
+            alt="Avatar"
+            fill={true}
+            className="object-cover"
+            sizes="48px"
+          />
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">

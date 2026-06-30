@@ -3,7 +3,7 @@
 import type * as React from 'react';
 
 import { type RoastSortValue } from '@/constants/roast';
-import type { ROAST_LEVEL } from '@/types/product';
+import { type ROAST_LEVEL } from '@repo/types';
 import { PriceRangeSlider } from '@/components/PriceRangeSlider';
 import { SearchInput } from '@/components/SearchInput';
 import { Select } from '@/components/Select';

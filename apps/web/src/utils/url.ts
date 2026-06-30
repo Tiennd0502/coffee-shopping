@@ -5,7 +5,7 @@ import {
   ROAST_SORT_VALUE,
   type RoastSortValue,
 } from '@/constants/roast';
-import { ROAST_LEVEL } from '@/types/product';
+import { ROAST_LEVEL } from '@repo/types';
 
 const ROAST_LEVEL_SET = new Set<string>(Object.values(ROAST_LEVEL));
 

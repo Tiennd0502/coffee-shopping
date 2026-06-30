@@ -1,13 +1,17 @@
-export interface ResponseMeta {
+export interface Meta {
   limit: number;
   currentPage: number;
   pageCount: number;
   totalCount: number;
 }
 
-export interface Response<T> {
+export interface ResponsSuccess<T> {
   data: T;
-  meta?: ResponseMeta;
+}
+
+export interface PaginatedResponse<T> extends ResponsSuccess<T> {
+  data: T;
+  meta: Meta;
 }
 
 export interface ErrorDetail {

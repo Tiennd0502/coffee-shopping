@@ -68,15 +68,16 @@ export const PageContent = () => {
     return () => window.clearTimeout(id);
   }, [searchInput]);
 
-  const { categories, meta, isLoading, isError, errorMessage } = useCategories({
+  const { data, isLoading, isError, error } = useCategories({
     page,
     limit,
     search: search.trim(),
   });
+  const { data: categories = [], meta = null } = data ?? {};
 
   const totalPages = Math.max(1, meta?.pageCount ?? 1);
-  const totalCount = meta?.totalCount ?? categories.length;
-  const showingCount = categories.length;
+  const totalCount = meta?.totalCount ?? categories?.length ?? 0;
+  const showingCount = categories?.length ?? 0;
 
   useEffect(() => {
     if (page > totalPages) {
@@ -197,7 +198,7 @@ export const PageContent = () => {
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <p className="text-muted-foreground">{errorMessage}</p>
+            <p className="text-muted-foreground first-letter:uppercase">{error?.message}</p>
           </div>
         ) : (
           <Table

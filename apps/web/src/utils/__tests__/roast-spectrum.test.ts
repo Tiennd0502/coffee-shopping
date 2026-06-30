@@ -1,5 +1,5 @@
 import { ROAST_LEVEL_SPECTRUM_PERCENT } from '@/constants/roast';
-import { ROAST_LEVEL } from '@/types/product';
+import { ROAST_LEVEL } from '@repo/types';
 
 describe('ROAST_LEVEL_SPECTRUM_PERCENT', () => {
   it('maps LIGHT to a left-biased position', () => {

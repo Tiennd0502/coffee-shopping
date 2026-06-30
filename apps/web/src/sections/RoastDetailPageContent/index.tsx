@@ -27,7 +27,8 @@ const ROASTS_LIST_HREF = '/roasts';
 export default function RoastDetailPageContent() {
   const { id: productId = '' } = useParams<{ id: string }>();
 
-  const { product, isLoading, isError, errorMessage, refetch } = useProductById(productId);
+  const { data, isLoading, isError, error, refetch } = useProductById(productId);
+  const { data: product } = data ?? {};
 
   if (!productId) {
     return (
@@ -65,7 +66,9 @@ export default function RoastDetailPageContent() {
     return (
       <div className="bg-background">
         <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 text-center md:px-8 md:py-12">
-          <p className="text-on-surface-variant">{errorMessage ?? 'Unable to load this roast.'}</p>
+          <p className="text-on-surface-variant first-letter:uppercase">
+            {error?.message ?? 'Unable to load this roast.'}
+          </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button onClick={() => void refetch()} variant="outline">
               Retry
@@ -122,7 +125,7 @@ export default function RoastDetailPageContent() {
                   <Image
                     src={url ?? EMPTY_IMAGE}
                     alt={product.name}
-                    fill
+                    fill={true}
                     className="object-cover"
                   />
                 </div>
@@ -132,7 +135,7 @@ export default function RoastDetailPageContent() {
                   <Image
                     src={url ?? EMPTY_IMAGE}
                     alt={product.name}
-                    fill
+                    fill={true}
                     className="object-cover"
                   />
                 </div>

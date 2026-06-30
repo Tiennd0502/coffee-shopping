@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 // Types
-import { PRODUCT_STATUS, type ROAST_LEVEL } from '@/types/product';
+import { PRODUCT_STATUS, type ROAST_LEVEL } from '@repo/types';
 
 // Constants
 import {
@@ -15,13 +15,11 @@ import {
   type RoastSortValue,
 } from '@/constants/roast';
 import { SEARCH_URL_DEBOUNCE_MS } from '@/constants/common';
+import { EMPTY_IMAGE } from '@/constants/images';
 
 // Hooks
 import { useUrlState } from '@/hooks/useUrlState';
-import { useProducts } from '@/hooks/useProduct';
-
-// Services
-import type { ProductOptions } from '@/services/product';
+import { useProducts, type ProductQueryParams } from '@/hooks/useProduct';
 
 // Utils
 import { mapProductToRoastCollection } from '@/utils/product';
@@ -33,7 +31,6 @@ import { ProductsGrid } from '@/components/ProductsGrid';
 import { Button } from '@/components/ui/button';
 import { PaginationBar } from '@/components/Pagination';
 import FiltersPanel from '../FiltersPanel';
-import { EMPTY_IMAGE } from '@/constants/images';
 
 const getRoastLabel = (value: ROAST_LEVEL) =>
   ROAST_LEVEL_OPTIONS.find((option) => option.value === value)?.label ?? value;
@@ -86,9 +83,9 @@ export default function RoastsPageContent() {
     return [lo, hi];
   }, [urlMinPrice, urlMaxPrice]);
 
-  const listParams = useMemo((): ProductOptions => {
+  const listParams = useMemo((): ProductQueryParams => {
     const [lo, hi] = priceRange;
-    const params: ProductOptions = {
+    const params: ProductQueryParams = {
       page: listPage,
       limit: listLimit,
       search: listSearch.trim(),
@@ -117,7 +114,9 @@ export default function RoastsPageContent() {
     [listSearch, selectedRoastLevels.length, urlMinPrice, urlMaxPrice, sortBy],
   );
 
-  const { products, meta, isLoading, isError, errorMessage, refetch } = useProducts(listParams);
+  const { data, isLoading, isError, error, refetch } = useProducts(listParams);
+
+  const { data: products = [], meta } = data ?? {};
 
   const collections = useMemo(
     () => products.map((product) => mapProductToRoastCollection(product, EMPTY_IMAGE)),
@@ -208,8 +207,8 @@ export default function RoastsPageContent() {
             </div>
           ) : isError ? (
             <section className="space-y-4 rounded-3xl bg-surface-container-low p-6 text-center">
-              <p className="text-on-surface-variant">
-                {errorMessage ?? 'Unable to load products.'}
+              <p className="text-on-surface-variant first-letter:uppercase">
+                {error?.message ?? 'Unable to load products.'}
               </p>
               <Button onClick={() => void refetch()} variant="outline">
                 Retry

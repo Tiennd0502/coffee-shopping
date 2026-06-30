@@ -1,4 +1,5 @@
-import { PRODUCT_STATUS, ROAST_LEVEL, type Product } from '@/types/product';
+import type { Product } from '@/types/product';
+import { PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
 import { mapProductToRoastCollection } from '@/utils/product';
 
 const PLACEHOLDER = 'https://example.com/placeholder.jpg';
@@ -21,7 +22,7 @@ describe('mapProductToRoastCollection', () => {
         {
           sku: 's',
           weight: 250,
-          unit: 'g',
+          unit: PRODUCT_UNIT.G,
           price: 18.5,
           discountType: null,
           discountValue: null,
@@ -63,7 +64,7 @@ describe('mapProductToRoastCollection', () => {
         {
           sku: 's',
           weight: 250,
-          unit: 'g',
+          unit: PRODUCT_UNIT.G,
           price: 20,
           discountType: null,
           discountValue: null,

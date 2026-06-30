@@ -1,56 +1,56 @@
 'use client';
 
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth as useClerkAuth } from '@clerk/nextjs';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
-import { fetchUser } from '@/services/user';
+// Types
+import type { ResponsSuccess, User } from '@repo/types';
+
+// Constants
+import { API_ROUTES } from '@/constants/routes';
+import { LIST_QUERY_GC_MS, LIST_QUERY_STALE_MS } from '@/constants/common';
+
+// Services
+import { apiClient } from '@/services/api';
+
+// Stores
 import { useUserStore } from '@/store/useUserStore';
 
 export const useAuth = () => {
   const { isLoaded, isSignedIn } = useClerkAuth();
+  const queryClient = useQueryClient();
+  const [setUser, reset] = useUserStore(useShallow((state) => [state.setUser, state.reset]));
 
-  const [user, setUser, isLoading, error, setLoading, setError, reset] = useUserStore(
-    useShallow((state) => [
-      state.user,
-      state.setUser,
-      state.isLoading,
-      state.error,
-      state.setLoading,
-      state.setError,
-      state.reset,
-    ]),
-  );
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const result = await fetchUser();
-
-    if (result.ok) {
-      setUser(result?.user);
-    } else {
-      setUser(null);
-      setError(result.error);
-    }
-    setLoading(false);
-  }, [setError, setLoading, setUser]);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => apiClient.get<ResponsSuccess<User>>(API_ROUTES.ME),
+    staleTime: LIST_QUERY_STALE_MS,
+    gcTime: LIST_QUERY_GC_MS,
+    placeholderData: keepPreviousData,
+    enabled: isLoaded && !!isSignedIn,
+  });
+  const { data: user } = data ?? {};
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (!isSignedIn) {
-      reset();
-      setError(null);
-      return;
+    if (user) {
+      setUser(user);
     }
-    void load();
-  }, [isLoaded, isSignedIn, reset, load]);
+  }, [user, setUser]);
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      reset();
+      queryClient.removeQueries({ queryKey: ['me'] });
+    }
+  }, [isLoaded, isSignedIn, reset, queryClient]);
 
   return {
     user,
     isLoading,
-    error,
-    refetch: load,
+    error: error?.message,
+    refetch,
     isSignedIn,
     isAuthLoaded: isLoaded,
   };

@@ -1,10 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { PageContent } from '@/app/dashboard/users/PageContent';
 import { PAGE_SIZE } from '@/constants/common';
 import { API_FALLBACK_ERRORS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
-import { useDeleteUser, useUpdateUserRole, useUsers, type UseUsersParams } from '@/hooks/useUser';
+import { useDeleteUser, useUpdateUserRole, useUsers, type UsersQueryParams } from '@/hooks/useUser';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { USER_ROLE, USER_STATUS } from '@repo/types';
@@ -74,7 +74,7 @@ const mutateDeleteUserMock = jest.fn();
 /** Simulated API page size in tests (response meta `limit`). */
 const MOCK_USERS_PAGE_SIZE = 4;
 
-function mockUsersByApiParams(params: UseUsersParams = {}) {
+function mockUsersByApiParams(params: UsersQueryParams) {
   const page = params.page ?? 1;
   const search = params.search?.trim().toLowerCase() ?? '';
   const roleFilter = params.role;
@@ -82,7 +82,7 @@ function mockUsersByApiParams(params: UseUsersParams = {}) {
   const base = {
     isLoading: false,
     isError: false,
-    errorMessage: null,
+    error: null,
     refetch: refetchMock,
   };
 
@@ -108,14 +108,16 @@ function mockUsersByApiParams(params: UseUsersParams = {}) {
 
   return {
     ...base,
-    users: slice,
-    meta: {
-      limit: pageSize,
-      currentPage: page,
-      pageCount,
-      totalCount,
+    data: {
+      data: slice,
+      meta: {
+        limit: pageSize,
+        currentPage: page,
+        pageCount,
+        totalCount,
+      },
     },
-  };
+  } as unknown as ReturnType<typeof useUsers>;
 }
 
 const usersFixture = [
@@ -200,7 +202,7 @@ describe('Dashboard users page', () => {
       () => new URLSearchParams(navQueryString) as ReturnType<typeof useSearchParams>,
     );
     refetchMock.mockReset();
-    mockUseUsers.mockImplementation((params) => mockUsersByApiParams(params));
+    mockUseUsers.mockImplementation((params: UsersQueryParams) => mockUsersByApiParams(params));
     mutateUserRoleMock.mockReset();
     mutateDeleteUserMock.mockReset();
     mockToastSuccess.mockReset();
@@ -278,30 +280,43 @@ describe('Dashboard users page', () => {
     await user.click(screen.getByLabelText('Go to next page'));
     view.rerender(<PageContent />);
 
-    expect(mockUseUsers).toHaveBeenLastCalledWith(
-      expect.objectContaining({ page: 2, limit: PAGE_SIZE }),
-    );
-    expect(screen.getByText('l.carter@sensorybrew.com')).toBeInTheDocument();
-    expect(screen.getByText('n.grimes@sensorybrew.com')).toBeInTheDocument();
-    expect(screen.queryByText('julian.v@sensorybrew.com')).not.toBeInTheDocument();
+    await act(async () => {
+      expect(mockUseUsers).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, limit: PAGE_SIZE }),
+      );
+      expect(screen.getByText('l.carter@sensorybrew.com')).toBeInTheDocument();
+      expect(screen.getByText('n.grimes@sensorybrew.com')).toBeInTheDocument();
+      expect(screen.queryByText('julian.v@sensorybrew.com')).not.toBeInTheDocument();
+    });
   });
 
   it('renders error state and retries', async () => {
     const user = userEvent.setup();
-    mockUseUsers.mockImplementation(() => ({
-      users: [],
-      meta: null,
-      isLoading: false,
-      isError: true,
-      errorMessage: API_FALLBACK_ERRORS.USERS_LOAD,
-      refetch: refetchMock,
-    }));
+    mockUseUsers.mockImplementation(
+      () =>
+        ({
+          data: {
+            data: [],
+            meta: null,
+          },
+          isLoading: false,
+          isError: true,
+          error: {
+            message: API_FALLBACK_ERRORS.USERS_LOAD,
+          },
+          refetch: refetchMock,
+        }) as unknown as ReturnType<typeof useUsers>,
+    );
 
     renderUsersPage();
+    await act(async () => {
+      expect(screen.getByText(API_FALLBACK_ERRORS.USERS_LOAD)).toBeInTheDocument();
+    });
 
-    expect(screen.getByText(API_FALLBACK_ERRORS.USERS_LOAD)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(refetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      expect(refetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('opens delete dialog and confirms delete mutate', async () => {
@@ -309,18 +324,21 @@ describe('Dashboard users page', () => {
     renderUsersPage();
 
     await user.click(screen.getByRole('button', { name: /Delete Julian/i }));
-    expect(screen.getByTestId('modal-confirm-delete-user')).toBeInTheDocument();
-    expect(screen.getByText('Delete user?')).toBeInTheDocument();
-
+    await act(async () => {
+      expect(screen.getByTestId('modal-confirm-delete-user')).toBeInTheDocument();
+      expect(screen.getByText('Delete user?')).toBeInTheDocument();
+    });
     await user.click(screen.getByRole('button', { name: /^delete$/i }));
 
-    expect(mutateDeleteUserMock).toHaveBeenCalledWith(
-      'u-1',
-      expect.objectContaining({
-        onSuccess: expect.any(Function),
-        onError: expect.any(Function),
-      }),
-    );
+    await act(async () => {
+      expect(mutateDeleteUserMock).toHaveBeenCalledWith(
+        'u-1',
+        expect.objectContaining({
+          onSuccess: expect.any(Function),
+          onError: expect.any(Function),
+        }),
+      );
+    });
   });
 
   it('closes delete dialog on cancel without calling mutate', async () => {
@@ -330,8 +348,10 @@ describe('Dashboard users page', () => {
     await user.click(screen.getByRole('button', { name: /Delete Julian/i }));
     await user.click(screen.getByRole('button', { name: /cancel/i }));
 
-    expect(screen.queryByTestId('modal-confirm-delete-user')).not.toBeInTheDocument();
-    expect(mutateDeleteUserMock).not.toHaveBeenCalled();
+    await act(async () => {
+      expect(screen.queryByTestId('modal-confirm-delete-user')).not.toBeInTheDocument();
+      expect(mutateDeleteUserMock).not.toHaveBeenCalled();
+    });
   });
 
   it('shows delete API error in dialog and toast on success', async () => {
@@ -354,7 +374,11 @@ describe('Dashboard users page', () => {
       expect(screen.getByText(ERROR_MESSAGES.NETWORK_ERROR)).toBeInTheDocument();
     });
 
-    mutateArgs?.onSuccess?.();
-    expect(mockToastSuccess).toHaveBeenCalledWith(SUCCESS_MESSAGES.USER_DELETED);
+    await act(async () => {
+      mutateArgs?.onSuccess?.();
+    });
+    await waitFor(() => {
+      expect(mockToastSuccess).toHaveBeenCalledWith(SUCCESS_MESSAGES.USER_DELETED);
+    });
   });
 });
