@@ -1,4 +1,4 @@
-import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, type OptionItem } from '@repo/types';
 import type { TableColumn } from '@/components/Table';
 
 export const UNIT_OPTIONS: {
@@ -44,10 +44,7 @@ export const PRODUCTS_TABLE_COLUMNS: TableColumn[] = [
   },
 ];
 
-export const PRODUCT_STATUS_OPTIONS: {
-  value: string;
-  label: string;
-}[] = [
+export const PRODUCT_STATUS_OPTIONS: OptionItem<string>[] = [
   { value: 'all-status', label: 'All statuses' },
   { value: PRODUCT_STATUS.DRAFT, label: 'Draft' },
   { value: PRODUCT_STATUS.ACTIVE, label: 'Active' },

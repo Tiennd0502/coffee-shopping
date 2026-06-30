@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { ProductTableRow } from '@/sections/ProductTableRow';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
 
 const baseProduct = {
   id: 'p-1',
@@ -19,7 +19,7 @@ const baseProduct = {
     {
       sku: 'S1',
       weight: 250,
-      unit: 'g',
+      unit: PRODUCT_UNIT.G,
       price: 12,
       discountType: DISCOUNT_TYPE.PERCENT,
       discountValue: 0,

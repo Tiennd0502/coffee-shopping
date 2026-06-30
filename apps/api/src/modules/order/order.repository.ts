@@ -1,7 +1,7 @@
 import type { Repository } from 'typeorm';
 
 import { BaseRepository } from '@/shared/repositories/base.repository';
-import type { PaginatedResponse } from '@/shared/types/response';
+import type { PaginatedResponse } from '@repo/types';
 
 import type { ListOrdersQuery } from './order.dto';
 import { Order } from './order.entity';

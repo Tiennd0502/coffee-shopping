@@ -1,14 +1,24 @@
 'use client';
 
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Check, CircleHelp, Download, MapPin, Share2 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { ROUTES } from '@/constants/routes';
-import { useCartStore } from '@/store/useCartStore';
+// Types
 import type { OrderItem } from '@/types/order';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Utils
 import { formatPrice } from '@/utils/common';
+
+// Hooks
+import { useOrderById } from '@/hooks/useOrder';
+
+// Components
+import { Button } from '@/components/ui/button';
+import SkeletonPage from './SkeletonPage';
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short' });
 const dayFormatter = new Intl.DateTimeFormat('en-US', { day: '2-digit' });
@@ -16,9 +26,17 @@ const weekdayFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
 
 const OrderSuccessPageContent = () => {
   const router = useRouter();
-  const { itemSnapshots: snapshot, clearItemSnapshots } = useCartStore();
+  const params = useParams();
+  const orderId = Array.isArray(params?.id) ? params?.id[0] : (params?.id ?? '');
 
-  if (!snapshot) {
+  const { data, isLoading, isError } = useOrderById(orderId);
+  const { data: order } = data ?? {};
+
+  if (isLoading) {
+    return <SkeletonPage />;
+  }
+
+  if (isError) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
         <h1 className="text-4xl font-semibold text-on-surface">Order Successful</h1>
@@ -42,7 +60,7 @@ const OrderSuccessPageContent = () => {
     createdAt,
     items = [],
     tax = 0,
-  } = snapshot;
+  } = order ?? {};
 
   const {
     firstName = '',
@@ -95,7 +113,7 @@ const OrderSuccessPageContent = () => {
                     <Image
                       src={item.productImage}
                       alt={item.productName}
-                      fill
+                      fill={true}
                       className="object-cover"
                       sizes="64px"
                     />
@@ -176,7 +194,6 @@ const OrderSuccessPageContent = () => {
           <Button
             className=" w-full rounded-full text-base"
             onClick={() => {
-              clearItemSnapshots();
               router.push(ROUTES.HOME);
             }}
           >

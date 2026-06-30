@@ -3,15 +3,23 @@
 import Link from 'next/link';
 import { Pencil, Trash2 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PRODUCT_STATUS, ROAST_LEVEL, type Product } from '@/types/product';
+// Types
+import type { Product } from '@/types/product';
+import { PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
+import { type OptionItem } from '@/types/common';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Utils
 import { formatPrice } from '@/utils/common';
 import { getProductListPrice, getProductPrimaryImageUrl } from '@/utils/product';
 import { cn } from '@/utils/styles';
-import { type OptionItem } from '@/types/common';
-import { dashboardProductEditPath } from '@/constants/routes';
+
+// Components
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { buttonVariants } from '@/components/ui/button';
 
 type ProductWithCategoryName = Product & {
@@ -130,7 +138,7 @@ export function ProductTableRow({
       <td className="px-6 py-4 align-middle">
         <div className="flex justify-end gap-1">
           <Link
-            href={dashboardProductEditPath(product.id)}
+            href={ROUTES.DASHBOARD_PRODUCTS_EDIT(product.id)}
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
               (!product.id || isArchived) && 'pointer-events-none opacity-50',

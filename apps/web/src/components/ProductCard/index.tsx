@@ -2,10 +2,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { type RoastCollection } from '@/constants/roast';
-import { shopRoastDetailPath } from '@/constants/routes';
+
+// Constants
+import { EMPTY_IMAGE } from '@/constants/images';
+import { ROUTES } from '@/constants/routes';
+
+// Utils
 import { formatPrice } from '@/utils/common';
 import { cn } from '@/utils/styles';
-import { EMPTY_IMAGE } from '@/constants/images';
 
 export interface ProductCardProps {
   item: RoastCollection;
@@ -14,7 +18,7 @@ export interface ProductCardProps {
 const ProductCard = ({ item }: ProductCardProps) => {
   return (
     <Link
-      href={shopRoastDetailPath(item.id)}
+      href={ROUTES.ROASTS_DETAIL(item.id)}
       className={cn(
         'group flex h-full flex-col gap-4 rounded-4xl text-inherit no-underline outline-none',
         'transition-opacity hover:opacity-95',
@@ -25,7 +29,7 @@ const ProductCard = ({ item }: ProductCardProps) => {
         <Image
           src={item.imageUrl ?? EMPTY_IMAGE}
           alt={item.name}
-          fill
+          fill={true}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 1024px) 50vw, 25vw"
         />

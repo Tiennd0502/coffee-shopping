@@ -71,7 +71,7 @@ const SignUpForm = () => {
                   <Image
                     src="/images/glass-coffee-cup-layers.png"
                     alt="Freshly brewed coffee in glass cup"
-                    fill
+                    fill={true}
                     priority
                     className="object-cover grayscale-20 sepia-10 contrast-110"
                   />

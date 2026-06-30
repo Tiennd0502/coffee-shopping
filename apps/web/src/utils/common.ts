@@ -1,5 +1,5 @@
+import type { OptionItem } from '@repo/types';
 import { type Category } from '@/types/category';
-import { type OptionItem } from '@/types/common';
 
 /**
  * Formats a numeric amount as currency for display (e.g. price labels).
@@ -40,51 +40,6 @@ export const renderProductSku = ({ weight, unit }: { weight: number; unit: strin
   return `PRD-${safeWeight}${safeUnit}-${suffix}`;
 };
 
-export const ONLY_TEXT_REGEX = /^[A-Za-z/ ]+$/;
-
-export const toAlphaOnly = (value: string): string => value.replace(/[^A-Za-z/ ]/g, '');
-
-const formatThousandsRegex = /\B(?=(\d{3})+(?!\d))/g;
-
-export const normalizeNumericInput = (value: string): string => {
-  if (!value) return '';
-
-  const sanitized = value.replaceAll(',', '').replaceAll(' ', '');
-  const isNegative = sanitized.startsWith('-');
-  const unsigned = sanitized.replaceAll('-', '');
-  const hasDecimalPoint = unsigned.includes('.');
-  const [integerPartRaw, ...decimalParts] = unsigned.split('.');
-  const integerPart = integerPartRaw.replaceAll(/\D/g, '');
-  const decimalPart = decimalParts.join('').replaceAll(/\D/g, '');
-
-  if (!integerPart && hasDecimalPoint) {
-    if (!decimalPart) return `${isNegative ? '-' : ''}.`;
-    return `${isNegative ? '-' : ''}.${decimalPart}`;
-  }
-
-  const baseInteger = integerPart.length > 0 ? integerPart : decimalPart.length > 0 ? '0' : '';
-  if (!baseInteger && !decimalPart) return '';
-
-  const prefixedInteger = `${isNegative ? '-' : ''}${baseInteger}`;
-  if (!decimalPart) return prefixedInteger;
-
-  return `${prefixedInteger}.${decimalPart}`;
-};
-
-export const formatNumericWithThousands = (raw: string): string => {
-  if (!raw) return '';
-
-  const isNegative = raw.startsWith('-');
-  const unsigned = isNegative ? raw.slice(1) : raw;
-  const [integerPart, decimalPart] = unsigned.split('.');
-  const formattedInteger = integerPart.replaceAll(formatThousandsRegex, ',');
-  const prefixedInteger = `${isNegative ? '-' : ''}${formattedInteger}`;
-
-  if (decimalPart === undefined) return prefixedInteger;
-
-  return `${prefixedInteger}.${decimalPart}`;
-};
-
 /**
  * Masked list values look like `delete_<id>_user@domain.com` or with underscores in the local part.
  * Drop the first two `_`-separated segments (`delete|deleted`, then id); join the rest with `_`.
@@ -116,3 +71,14 @@ export const getCategoryOptions = (categories: Category[]): OptionItem[] =>
       value: category.id,
       label: category.name?.trim() ? category.name : category.slug,
     }));
+
+/**
+ *
+ * @param value - The value to get the label from.
+ * @param options - The options to get the label from.
+ * @returns The label of the value in the options.
+ */
+export const getLabelFromOptions = <T extends string | number>(
+  value: string,
+  options: OptionItem<T>[],
+): string => options.find((option) => option.value === value)?.label ?? '';

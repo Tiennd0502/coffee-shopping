@@ -92,7 +92,7 @@ export default function CartPageContent() {
               <Image
                 src={pendingRemoveItem.imageUrl}
                 alt={pendingRemoveItem.name}
-                fill
+                fill={true}
                 className="object-cover"
               />
             </div>

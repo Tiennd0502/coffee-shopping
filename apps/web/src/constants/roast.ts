@@ -1,26 +1,10 @@
-import { type OptionItem } from '@/types/common';
-import { ROAST_LEVEL } from '@/types/product';
+import { ROAST_LEVEL, PRODUCT_SORT, type OptionItem } from '@repo/types';
 
 export const ROAST_PRICE_MIN = 5;
 export const ROAST_PRICE_MAX = 250;
 export const ROAST_DEFAULT_PRICE_RANGE: [number, number] = [ROAST_PRICE_MIN, ROAST_PRICE_MAX];
 
-export const ROAST_SORT_VALUE = {
-  CURATED: 'curated',
-  PRICE_ASC: 'PRICE_ASC',
-  PRICE_DESC: 'PRICE_DESC',
-  NAME_ASC: 'NAME_ASC',
-  NAME_DESC: 'NAME_DESC',
-} as const;
-
-export type RoastSortValue = (typeof ROAST_SORT_VALUE)[keyof typeof ROAST_SORT_VALUE];
-
-export interface RoastLevelOption {
-  value: ROAST_LEVEL;
-  label: string;
-}
-
-export const ROAST_LEVEL_OPTIONS: RoastLevelOption[] = [
+export const ROAST_LEVEL_OPTIONS: OptionItem<ROAST_LEVEL>[] = [
   { value: ROAST_LEVEL.LIGHT, label: 'Light Roast' },
   { value: ROAST_LEVEL.MEDIUM, label: 'Medium Roast' },
   { value: ROAST_LEVEL.DARK, label: 'Dark Roast' },
@@ -32,12 +16,11 @@ export const ROAST_LEVEL_SPECTRUM_PERCENT: Record<ROAST_LEVEL, number> = {
   [ROAST_LEVEL.DARK]: 85,
 };
 
-export const ROAST_SORT_OPTIONS: OptionItem[] = [
-  { value: ROAST_SORT_VALUE.CURATED, label: 'Curated Selection' },
-  { value: ROAST_SORT_VALUE.PRICE_ASC, label: 'Price: Low to High' },
-  { value: ROAST_SORT_VALUE.PRICE_DESC, label: 'Price: High to Low' },
-  { value: ROAST_SORT_VALUE.NAME_ASC, label: 'Name: A to Z' },
-  { value: ROAST_SORT_VALUE.NAME_DESC, label: 'Name: Z to A' },
+export const ROAST_SORT_OPTIONS: OptionItem<PRODUCT_SORT>[] = [
+  { value: PRODUCT_SORT.PRICE_ASC, label: 'Price: Low to High' },
+  { value: PRODUCT_SORT.PRICE_DESC, label: 'Price: High to Low' },
+  { value: PRODUCT_SORT.NAME_ASC, label: 'Name: A to Z' },
+  { value: PRODUCT_SORT.NAME_DESC, label: 'Name: Z to A' },
 ];
 
 export interface RoastCollection {

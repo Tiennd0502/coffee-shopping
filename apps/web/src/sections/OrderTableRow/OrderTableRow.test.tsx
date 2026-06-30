@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { PAYMENT_METHOD } from '@/types/checkout';
-import { ORDER_STATUS, SHIPPING_STATUS, type Order } from '@/types/order';
+import { PAYMENT_METHOD, PAYMENT_STATUS } from '@repo/types';
+import { type Order } from '@/types/order';
+import { ORDER_STATUS, SHIPPING_STATUS } from '@repo/types';
 
 import { OrderTableRow } from './index';
 
@@ -13,7 +14,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     orderNumber: 'SB-9281',
     status: ORDER_STATUS.PENDING,
     shippingStatus: SHIPPING_STATUS.SHIPPING,
-    paymentStatus: ORDER_STATUS.PENDING,
+    paymentStatus: PAYMENT_STATUS.UNPAID,
     subTotal: 100,
     tax: 10,
     shippingFee: 5,
@@ -26,8 +27,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
       email: 'elena@example.com',
       firstName: 'Elena',
       lastName: 'Vance',
-      name: 'Elena Vance',
-      avatarUrl: null,
+      avatarUrl: '',
     },
     addressSnapshot: {
       firstName: 'Elena',

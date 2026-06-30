@@ -1,11 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import RoastsPage from '@/app/(shop)/roasts/page';
 import { PAGE_SIZE } from '@/constants/common';
 import { useProducts } from '@/hooks/useProduct';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL, type Product } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
+import type { Product } from '@/types/product';
 
 jest.mock('next/navigation', () => ({
   usePathname: jest.fn(),
@@ -15,13 +16,6 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/hooks/useProduct', () => ({
   useProducts: jest.fn(),
-}));
-
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: ({ alt, src, ...rest }: React.ImgHTMLAttributes<HTMLImageElement> & { src: string }) => (
-    <img alt={alt ?? ''} src={src} {...rest} />
-  ),
 }));
 
 const mockUsePathname = jest.mocked(usePathname);
@@ -46,7 +40,7 @@ const shopProductFixture: Product[] = [
       {
         sku: 'SKU-1',
         weight: 250,
-        unit: 'g',
+        unit: PRODUCT_UNIT.G,
         price: 24,
         discountType: DISCOUNT_TYPE.PERCENT,
         discountValue: 10,
@@ -75,24 +69,27 @@ describe('Roasts route page', () => {
       new URLSearchParams('') as ReturnType<typeof useSearchParams>,
     );
     mockUseProducts.mockReturnValue({
-      products: shopProductFixture,
-      meta: {
-        limit: PAGE_SIZE,
-        currentPage: 1,
-        pageCount: 1,
-        totalCount: 1,
+      data: {
+        data: shopProductFixture,
+        meta: {
+          limit: PAGE_SIZE,
+          currentPage: 1,
+          pageCount: 1,
+          totalCount: 1,
+        },
       },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useProducts>);
   });
 
-  it('renders roast page content from products API', () => {
+  it('renders roast page content from products API', async () => {
     render(<RoastsPage />);
-
-    expect(screen.getByRole('heading', { name: 'The Sensory Brew Shop' })).toBeInTheDocument();
-    expect(screen.getByText('Ethiopian Yirgacheffe')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'The Sensory Brew Shop' })).toBeInTheDocument();
+      expect(screen.getByText('Ethiopian Yirgacheffe')).toBeInTheDocument();
+    });
   });
 });

@@ -1,5 +1,5 @@
 import type { Order } from '@/modules/order/order.entity';
-import { PAYMENT_STATUS } from '@/shared/enums/order';
+import { PAYMENT_STATUS } from '@repo/types';
 
 import type { PaymentResult, PaymentStrategy } from './payment';
 

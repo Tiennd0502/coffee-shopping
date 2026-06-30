@@ -13,7 +13,7 @@ import {
 } from '@/config/swagger';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
-import { PRODUCT_SORT, PRODUCT_STATUS } from '@/shared/enums/product';
+import { PRODUCT_SORT, PRODUCT_STATUS } from '@repo/types';
 import {
   CreateProductSchema,
   ProductResponseSchema,

@@ -1,8 +1,8 @@
 import { In, type Repository, type SelectQueryBuilder } from 'typeorm';
 
-import { PRODUCT_SORT, PRODUCT_STATUS } from '@/shared/enums/product';
+import { PRODUCT_SORT, PRODUCT_STATUS } from '@repo/types';
 import { BaseRepository } from '@/shared/repositories/base.repository';
-import type { PaginatedResponse } from '@/shared/types/response';
+import type { PaginatedResponse } from '@repo/types';
 
 import type { ListProductsQuery } from './product.dto';
 import { Product } from './product.entity';

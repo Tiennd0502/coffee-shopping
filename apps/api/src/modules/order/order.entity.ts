@@ -1,12 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 
 import { BaseEntity } from '@/shared/entities/base';
-import {
-  ORDER_STATUS,
-  PAYMENT_METHOD,
-  PAYMENT_STATUS,
-  SHIPPING_STATUS,
-} from '@/shared/enums/order';
+import { ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS, SHIPPING_STATUS } from '@repo/types';
 import { User } from '@/modules/user/user.entity';
 
 import { OrderItem } from './order-item.entity';

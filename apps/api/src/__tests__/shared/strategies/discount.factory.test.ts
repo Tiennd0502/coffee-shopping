@@ -1,4 +1,4 @@
-import { DISCOUNT_TYPE } from '@/shared/enums/product';
+import { DISCOUNT_TYPE } from '@repo/types';
 import { DiscountStrategyFactory } from '@/shared/strategies/discount/discount.factory';
 import { FixedDiscountStrategy } from '@/shared/strategies/discount/fixed-discount';
 import { PercentDiscountStrategy } from '@/shared/strategies/discount/percent-discount';

@@ -11,21 +11,6 @@ jest.mock('next/navigation', () => ({
   usePathname: jest.fn(),
 }));
 
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: ({
-    alt,
-    priority: _priority,
-    ...props
-  }: React.ImgHTMLAttributes<HTMLImageElement> & {
-    alt: string;
-    priority?: boolean;
-  }) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img alt={alt} {...props} />
-  ),
-}));
-
 jest.mock('@/hooks/useIsMobile', () => ({
   useIsMobile: () => mockUseIsMobile(),
 }));

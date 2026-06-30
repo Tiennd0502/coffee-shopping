@@ -1,19 +1,11 @@
-import { type AddressSnapshot, type PaymentMethod } from './checkout';
-import { type User } from '@repo/types';
-
-export enum ORDER_STATUS {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-}
-
-export enum SHIPPING_STATUS {
-  PENDING = 'PENDING',
-  SHIPPING = 'SHIPPING',
-  DELIVERED = 'DELIVERED',
-  RETURNED = 'RETURNED',
-}
+import { type AddressSnapshot } from './checkout';
+import type {
+  User,
+  ORDER_STATUS,
+  SHIPPING_STATUS,
+  PAYMENT_STATUS,
+  PAYMENT_METHOD,
+} from '@repo/types';
 
 export interface OrderItemPayload {
   productId: string;
@@ -33,7 +25,7 @@ export interface OrderItem extends OrderItemPayload {
 
 export interface OrderPayload {
   shippingMethodId: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PAYMENT_METHOD;
   shippingAddress: AddressSnapshot;
   note?: string;
   items: OrderItemPayload[];
@@ -45,7 +37,7 @@ export interface Order extends Omit<OrderPayload, 'shippingAddress'> {
   orderNumber: string;
   status: ORDER_STATUS;
   shippingStatus: SHIPPING_STATUS;
-  paymentStatus: ORDER_STATUS;
+  paymentStatus: PAYMENT_STATUS;
   subTotal: number;
   tax: number;
   shippingFee: number;

@@ -6,17 +6,13 @@ import type { ProductVariantRepository } from '@/modules/product/product-variant
 import type { UserRepository } from '@/modules/user/user.repository';
 import { UserAddress } from '@/modules/user/user-address.entity';
 import { ORDER_CONSTANTS } from '@/shared/constants/order';
-import { DISCOUNT_TYPE } from '@/shared/enums/product';
-import { ORDER_STATUS } from '@/shared/enums/order';
-import { USER_STATUS } from '@repo/types';
+import { DISCOUNT_TYPE, ORDER_STATUS, USER_STATUS, type PaginatedResponse } from '@repo/types';
 import { BadRequestError, ErrorItem, ForbiddenError, NotFoundError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { BaseService } from '@/shared/services/base.service';
 import { DiscountStrategyFactory } from '@/shared/strategies/discount/discount.factory';
 import { PaymentStrategyFactory } from '@/shared/strategies/payment/payment.factory';
-import type { PaginatedResponse } from '@/shared/types/response';
-
 import type {
   CreateOrderAddressInput,
   CreateOrderInput,

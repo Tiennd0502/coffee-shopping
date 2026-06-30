@@ -1,7 +1,7 @@
 import { Column, Entity } from 'typeorm';
 
 import { AuditableEntity } from '@/shared/entities/auditable';
-import { SHIPPING_METHOD_STATUS } from '@/shared/enums/order';
+import { SHIPPING_METHOD_STATUS } from '@repo/types';
 
 @Entity('shipping_methods')
 export class ShippingMethod extends AuditableEntity {

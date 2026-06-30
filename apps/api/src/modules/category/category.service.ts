@@ -3,7 +3,7 @@ import type { DataSource } from 'typeorm';
 import { BadRequestError, ConflictError } from '@/shared/errors/app';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { BaseService } from '@/shared/services/base.service';
-import type { PaginatedResponse } from '@/shared/types/response';
+import type { PaginatedResponse } from '@repo/types';
 import { slugFrom } from '@/shared/utils/slug';
 
 import type { CreateCategoryInput, ListCategoriesQuery, UpdateCategoryInput } from './category.dto';

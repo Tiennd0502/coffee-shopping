@@ -8,7 +8,7 @@ import type {
   SelectQueryBuilder,
 } from 'typeorm';
 
-import type { PaginatedResponse } from '@/shared/types/response';
+import type { PaginatedResponse } from '@repo/types';
 
 export abstract class BaseRepository<T extends ObjectLiteral> {
   constructor(protected readonly repository: Repository<T>) {}

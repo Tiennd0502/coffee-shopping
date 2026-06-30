@@ -66,7 +66,7 @@ export const CheckoutOrderSummary = ({
                 <Image
                   src={item.imageUrl}
                   alt={item.name}
-                  fill
+                  fill={true}
                   className="object-cover"
                   sizes="64px"
                 />

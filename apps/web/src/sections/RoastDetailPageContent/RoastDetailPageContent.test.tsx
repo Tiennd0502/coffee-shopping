@@ -4,7 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 
 import RoastDetailPageContent from '@/sections/RoastDetailPageContent';
 import { useProductById } from '@/hooks/useProduct';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL, type Product } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
+import type { Product } from '@/types/product';
 
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
@@ -13,21 +14,6 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/hooks/useProduct', () => ({
   useProductById: jest.fn(),
-}));
-
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: ({
-    alt,
-    src,
-    fill: _f,
-    priority: _p,
-    ...rest
-  }: React.ImgHTMLAttributes<HTMLImageElement> & {
-    src: string;
-    fill?: boolean;
-    priority?: boolean;
-  }) => <img alt={alt ?? ''} src={src} {...rest} />,
 }));
 
 beforeAll(() => {
@@ -68,7 +54,7 @@ const productFixture: Product = {
     {
       sku: 'SKU-1',
       weight: 250,
-      unit: 'g',
+      unit: PRODUCT_UNIT.G,
       price: 24,
       discountType: DISCOUNT_TYPE.PERCENT,
       discountValue: 0,
@@ -96,12 +82,12 @@ describe('RoastDetailPageContent', () => {
 
   it('shows loading skeleton when loading', () => {
     mockUseProductById.mockReturnValue({
-      product: null,
+      data: undefined,
       isLoading: true,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useProductById>);
 
     render(<RoastDetailPageContent />);
     expect(screen.getByTestId('roast-detail-loading')).toBeInTheDocument();
@@ -109,12 +95,12 @@ describe('RoastDetailPageContent', () => {
 
   it('shows error message and retry when error', () => {
     mockUseProductById.mockReturnValue({
-      product: null,
+      data: undefined,
       isLoading: false,
       isError: true,
-      errorMessage: 'Network down',
+      error: { message: 'Network down' },
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useProductById>);
 
     render(<RoastDetailPageContent />);
     expect(screen.getByText('Network down')).toBeInTheDocument();
@@ -123,12 +109,12 @@ describe('RoastDetailPageContent', () => {
 
   it('renders product title and spec grid when loaded', () => {
     mockUseProductById.mockReturnValue({
-      product: productFixture,
+      data: { data: productFixture },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useProductById>);
 
     render(<RoastDetailPageContent />);
 

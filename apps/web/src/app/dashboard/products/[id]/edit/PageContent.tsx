@@ -7,20 +7,34 @@ import { BadgeCheck, Leaf, Plus, X } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+// Types
 import type { Product, ProductImagePayload, ProductUpdatePayload } from '@/types/product';
-import { PRODUCT_STATUS, ROAST_LEVEL } from '@/types/product';
+import { PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
 
+// Constants
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
 import { EMPTY_IMAGE } from '@/constants/images';
 import { CATEGORY_QUERY_OPTIONS } from '@/constants/category';
-import { ROUTES, dashboardProductEditPath } from '@/constants/routes';
+import { ROUTES } from '@/constants/routes';
 
+// Hooks
 import { useCategories } from '@/hooks/useCategory';
 import { useProductById, useUpdateProduct } from '@/hooks/useProduct';
 
+// Services
 import { uploadImageToImgBB } from '@/services/image';
 import { editProductFormSchema, type EditProductFormValues } from '@/schemas/product';
 
+// Utils
+import { getCategoryOptions } from '@/utils/common';
+import {
+  buildProductUpdateImageDiff,
+  mapProductToEditFormValues,
+  parseTastingNotesString,
+  splitProductImagesForGallery,
+} from '@/utils/product';
+
+// Components
 import Breadcrumb from '@/components/Breadcrumb';
 import { Input } from '@/components/Input';
 import UploadImage from '@/components/UploadImage';
@@ -36,14 +50,6 @@ import { Switch } from '@/components/ui/switch';
 import PublishIcon from '@/components/icon/PublishIcon';
 import BrainIcon from '@/components/icon/BrainIcon';
 import { Spinner } from '@/components/ui/spinner';
-
-import { getCategoryOptions } from '@/utils/common';
-import {
-  buildProductUpdateImageDiff,
-  mapProductToEditFormValues,
-  parseTastingNotesString,
-  splitProductImagesForGallery,
-} from '@/utils/product';
 
 interface LocalImage {
   url: string;
@@ -82,8 +88,10 @@ interface EditProductFormProps {
 const EditProductForm = ({ product, productId }: EditProductFormProps) => {
   const router = useRouter();
   const { mutate: updateMutate, isPending: isUpdatePending } = useUpdateProduct();
-  const { categories, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
-  const activeCategories = categories.filter((category) => !category.deletedAt);
+  const { data, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const { data: categories } = data ?? {};
+
+  const activeCategories = categories?.filter((category) => !category.deletedAt) ?? [];
 
   const [avatarImage, setAvatarImage] = useState<LocalImage | null>(null);
   const [serverPrimaryUrl, setServerPrimaryUrl] = useState<string | null>(null);
@@ -371,7 +379,8 @@ const EditProductForm = ({ product, productId }: EditProductFormProps) => {
     { label: 'Products', href: ROUTES.DASHBOARD_PRODUCTS },
     {
       label: 'Edit Product',
-      href: productId !== '' ? dashboardProductEditPath(productId) : ROUTES.DASHBOARD_PRODUCTS,
+      href:
+        productId !== '' ? ROUTES.DASHBOARD_PRODUCTS_EDIT(productId) : ROUTES.DASHBOARD_PRODUCTS,
     },
   ];
 
@@ -697,7 +706,8 @@ export default function PageContent() {
   const productId =
     typeof rawId === 'string' ? rawId : Array.isArray(rawId) ? (rawId[0] ?? '') : '';
 
-  const { product, isLoading, isError, errorMessage, refetch } = useProductById(productId);
+  const { data, isLoading, isError, error, refetch } = useProductById(productId);
+  const { data: product } = data ?? {};
 
   if (!productId) {
     return <div className="px-6 py-12 text-center text-muted-foreground">Missing product id.</div>;
@@ -714,13 +724,10 @@ export default function PageContent() {
   if (isError || !product) {
     return (
       <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-        <p className="text-muted-foreground">{errorMessage ?? 'Could not load product.'}</p>
-        <Button
-          className="w-fit px-6"
-          variant="destructive"
-          size="sm"
-          onClick={() => void refetch()}
-        >
+        <p className="text-muted-foreground first-letter:uppercase">
+          {error?.message ?? 'Could not load product.'}
+        </p>
+        <Button className="w-fit px-6" variant="destructive" size="sm" onClick={() => refetch()}>
           Retry
         </Button>
       </div>

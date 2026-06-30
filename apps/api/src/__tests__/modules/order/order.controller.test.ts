@@ -8,8 +8,8 @@ import {
   PAYMENT_METHOD,
   PAYMENT_STATUS,
   SHIPPING_STATUS,
-} from '@/shared/enums/order';
-import { USER_ROLE } from '@repo/types';
+  USER_ROLE,
+} from '@repo/types';
 import { NotFoundError } from '@/shared/errors/app';
 
 const makeOrder = (): Order =>

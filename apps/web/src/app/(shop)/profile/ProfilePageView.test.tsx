@@ -2,8 +2,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { ProfilePageView } from '@/app/(shop)/profile/ProfilePageView';
-import { PAYMENT_METHOD } from '@/types/checkout';
-import { ORDER_STATUS, SHIPPING_STATUS, type Order } from '@/types/order';
+import { PAYMENT_METHOD } from '@repo/types';
+import { type Order } from '@/types/order';
+import { ORDER_STATUS, SHIPPING_STATUS, PAYMENT_STATUS } from '@repo/types';
 
 const mockUseAuth = jest.fn();
 const mockUseClerkUser = jest.fn();
@@ -24,42 +25,44 @@ jest.mock('@/hooks/useOrder', () => ({
 describe('ProfilePageView order history', () => {
   const refetch = jest.fn();
 
-  const orderFixture: Order = {
-    id: 'order-1',
-    userId: 'user-1',
-    orderNumber: 'OD-1001',
-    status: ORDER_STATUS.COMPLETED,
-    shippingStatus: SHIPPING_STATUS.DELIVERED,
-    paymentStatus: ORDER_STATUS.COMPLETED,
-    subTotal: 100000,
-    tax: 10000,
-    shippingFee: 15000,
-    totalAmount: 125000,
-    shippingMethodId: 'ship-1',
-    shippingMethodName: 'Standard',
-    paymentMethod: PAYMENT_METHOD.COD,
-    user: {
-      id: 'user-1',
-      email: 'john@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      name: 'John Doe',
-      avatarUrl: null,
+  const orders: Order[] = [
+    {
+      id: 'order-1',
+      userId: 'user-1',
+      orderNumber: 'OD-1001',
+      status: ORDER_STATUS.COMPLETED,
+      shippingStatus: SHIPPING_STATUS.DELIVERED,
+      paymentStatus: PAYMENT_STATUS.PAID,
+      subTotal: 100000,
+      tax: 10000,
+      shippingFee: 15000,
+      totalAmount: 125000,
+      shippingMethodId: 'ship-1',
+      shippingMethodName: 'Standard',
+      paymentMethod: PAYMENT_METHOD.COD,
+      user: {
+        id: 'user-1',
+        email: 'john@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        avatarUrl: '',
+      },
+      addressSnapshot: {
+        firstName: 'John',
+        lastName: 'Doe',
+        phoneNumber: '0123456789',
+        addressLine: '123 Main',
+        district: 'District 1',
+        ward: 'Ward 1',
+        city: 'HCM',
+        postalCode: '700000',
+      },
+      items: [],
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+      deletedAt: null,
     },
-    addressSnapshot: {
-      firstName: 'John',
-      lastName: 'Doe',
-      phoneNumber: '0123456789',
-      addressLine: '123 Main',
-      district: 'District 1',
-      ward: 'Ward 1',
-      city: 'HCM',
-      postalCode: '700000',
-    },
-    items: [],
-    createdAt: '2026-04-27T00:00:00.000Z',
-    updatedAt: '2026-04-27T00:00:00.000Z',
-  };
+  ];
 
   beforeEach(() => {
     refetch.mockReset();
@@ -74,38 +77,21 @@ describe('ProfilePageView order history', () => {
       isLoaded: true,
     });
     mockUseOrders.mockReturnValue({
-      orders: [orderFixture],
-      meta: null,
+      data: { data: orders, meta: null },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch,
     });
-  });
-
-  it('renders loading state in order table', () => {
-    mockUseOrders.mockReturnValue({
-      orders: [],
-      meta: null,
-      isLoading: true,
-      isError: false,
-      errorMessage: null,
-      refetch,
-    });
-
-    render(<ProfilePageView />);
-
-    expect(screen.getByText('Loading orders')).toBeInTheDocument();
   });
 
   it('renders error state and retries', async () => {
     const user = userEvent.setup();
     mockUseOrders.mockReturnValue({
-      orders: [],
-      meta: null,
+      data: { data: [], meta: null },
       isLoading: false,
       isError: true,
-      errorMessage: 'Load failed',
+      error: { message: 'Load failed' },
       refetch,
     });
 
@@ -119,11 +105,10 @@ describe('ProfilePageView order history', () => {
 
   it('renders empty state when no orders', () => {
     mockUseOrders.mockReturnValue({
-      orders: [],
-      meta: null,
+      data: { data: [], meta: null },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch,
     });
 

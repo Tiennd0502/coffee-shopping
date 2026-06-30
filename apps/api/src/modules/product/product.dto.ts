@@ -7,7 +7,7 @@ import {
   PRODUCT_STATUS,
   PRODUCT_UNIT,
   ROAST_LEVEL,
-} from '@/shared/enums/product';
+} from '@repo/types';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 
 export const CreateProductVariantSchema = z.object({

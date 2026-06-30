@@ -4,33 +4,30 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'sonner';
 
-import { CheckoutOrderSummary } from '@/components/CheckoutOrderSummary';
-import { CheckoutPaymentMethod } from '@/components/CheckoutPaymentMethod';
-import { Input } from '@/components/Input';
-import { Button } from '@/components/ui/button';
+// Types
+import type { ApiErrorResponse } from '@repo/types';
+import type { CartTotals } from '@/types/cart';
+import type { OrderPayload } from '@/types/order';
+import { type CheckoutFormValues, type AddressSnapshot } from '@/types/checkout';
+import { PAYMENT_METHOD } from '@repo/types';
+
+// Constants
 import { ERROR_MESSAGES } from '@/constants/messages';
 import { CHECKOUT_PLACE_ORDER_BLOCKED_MESSAGE } from '@/constants/order';
 import { ROUTES } from '@/constants/routes';
+import { DELIVERY_SPEED } from '@/constants/order';
+
+// Hooks | Stores
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateOrder } from '@/hooks/useOrder';
-import { parseCheckoutValues } from '@/schemas/checkout';
 import {
   findMapboxAddressSuggestions,
   mapboxFeatureToCheckoutAddress,
   type MapboxAddressSuggestion,
 } from '@/services/mapboxGeocode';
 import { useCartStore } from '@/store/useCartStore';
-import type { ApiErrorResponse } from '@/types/api';
-import type { CartTotals } from '@/types/cart';
-import {
-  PAYMENT_METHOD,
-  type CheckoutFormValues,
-  type AddressSnapshot,
-  type PaymentMethod,
-} from '@/types/checkout';
-import Loading from '@/components/Loading';
-import type { OrderPayload } from '@/types/order';
-import { DELIVERY_SPEED } from '@/constants/order';
+
+// Utils
 import {
   mapItemFieldErrorsToLineIdMessages,
   omitSubmitErrorsForRemovedLine,
@@ -38,6 +35,14 @@ import {
 } from '@/utils/order';
 import { formatPrice } from '@/utils/common';
 import { isCartItemOutOfStock } from '@/utils/inventory';
+import { parseCheckoutValues } from '@/schemas/checkout';
+
+// Components
+import { CheckoutOrderSummary } from '@/components/CheckoutOrderSummary';
+import { CheckoutPaymentMethod } from '@/components/CheckoutPaymentMethod';
+import { Input } from '@/components/Input';
+import { Button } from '@/components/ui/button';
+import Loading from '@/components/Loading';
 
 type CheckoutFieldErrors = Partial<Record<keyof CheckoutFormValues, string>>;
 
@@ -75,17 +80,8 @@ const CheckoutPageContent = () => {
   const formRef = useRef<HTMLFormElement | null>(null);
   const selectedSuggestionRef = useRef<string | null>(null);
 
-  const {
-    items,
-    totals,
-    isLoading,
-    isError,
-    errorMessage,
-    refetch,
-    clearCart,
-    setItemSnapshots,
-    removeItem,
-  } = useCartStore();
+  const { items, totals, isLoading, isError, errorMessage, refetch, clearCart, removeItem } =
+    useCartStore();
   const { mutate: createOrder } = useCreateOrder();
 
   const hasItems = items.length > 0;
@@ -136,10 +132,7 @@ const CheckoutPageContent = () => {
     }));
   }, [initialUserValues]);
 
-  const handleValueChange = (
-    field: keyof CheckoutFormValues,
-    nextValue: string | PaymentMethod,
-  ) => {
+  const handleValueChange = (field: keyof CheckoutFormValues, nextValue: PAYMENT_METHOD) => {
     setValues((previousValues) => ({
       ...previousValues,
       [field]: nextValue,
@@ -153,7 +146,7 @@ const CheckoutPageContent = () => {
 
   const handleInputChange =
     (field: keyof CheckoutFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
-      handleValueChange(field, event.target.value);
+      handleValueChange(field, event.target.value as PAYMENT_METHOD);
     };
 
   const handleAddressInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -208,7 +201,7 @@ const CheckoutPageContent = () => {
     }));
   };
 
-  const handlePaymentMethodChange = (paymentMethod: PaymentMethod) => {
+  const handlePaymentMethodChange = (paymentMethod: PAYMENT_METHOD) => {
     handleValueChange('paymentMethod', paymentMethod);
   };
 
@@ -304,13 +297,14 @@ const CheckoutPageContent = () => {
       },
       {
         onSuccess: (data) => {
-          setItemSnapshots(data);
+          if (!data) return;
+          const order = data.data;
           setSubmitErrors(null);
           toast.success('Order placed successfully', {
             description: `Total charged: $${normalizedTotal}`,
           });
           setIsSubmitting(false);
-          router.push(ROUTES.ORDER_SUCCESS);
+          router.push(ROUTES.ORDER_SUCCESS(order.id));
 
           setTimeout(() => {
             clearCart();

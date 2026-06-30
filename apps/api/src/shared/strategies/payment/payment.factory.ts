@@ -1,4 +1,4 @@
-import { PAYMENT_METHOD } from '@/shared/enums/order';
+import { PAYMENT_METHOD } from '@repo/types';
 
 import type { PaymentStrategy } from './payment';
 import { CodPaymentStrategy } from './cod';

@@ -2,7 +2,6 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { StatusCodes } from 'http-status-codes';
 
 import { env } from '@/config/env';
 
@@ -14,7 +13,6 @@ import { httpLoggerMiddleware } from '@/middlewares/http-logger';
 import router from '@/routes';
 
 // Shared
-import { catchAsync } from '@/shared/utils/async-handler';
 import type { RawBodyRequest } from '@/shared/types/request';
 import { TooManyRequestsError } from '@/shared/errors/app';
 
@@ -42,14 +40,8 @@ app.use(
     },
   }),
 );
-app.use(httpLoggerMiddleware);
 
-app.get(
-  '/',
-  catchAsync((_req, res) => {
-    res.status(StatusCodes.OK).json({ message: 'Coffee Shop API', status: 'ok' });
-  }),
-);
+app.use(httpLoggerMiddleware);
 
 app.use('/api', router);
 

@@ -23,17 +23,19 @@ const mockUseSearchParams = jest.mocked(useSearchParams);
 const mockUseCategories = jest.mocked(useCategories);
 const mockUseDeleteCategory = jest.mocked(useDeleteCategory);
 
-const listCategory = {
-  id: 'cat-list-1',
-  name: 'Hello',
-  slug: 'hello',
-  createdBy: null,
-  updatedBy: null,
-  deletedBy: null,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-  deletedAt: null,
-};
+const listCategory = [
+  {
+    id: 'cat-list-1',
+    name: 'Hello',
+    slug: 'hello',
+    createdBy: null,
+    updatedBy: null,
+    deletedBy: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    deletedAt: null,
+  },
+];
 
 describe('Categories PageContent', () => {
   const mutateDelete = jest.fn();
@@ -48,18 +50,20 @@ describe('Categories PageContent', () => {
       new URLSearchParams('') as ReturnType<typeof useSearchParams>,
     );
     mockUseCategories.mockReturnValue({
-      categories: [],
-      meta: {
-        limit: 10,
-        currentPage: 1,
-        pageCount: 1,
-        totalCount: 0,
+      data: {
+        data: [],
+        meta: {
+          limit: 10,
+          currentPage: 1,
+          pageCount: 1,
+          totalCount: 0,
+        },
       },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useCategories>);
     mockUseDeleteCategory.mockReturnValue({
       mutate: mutateDelete,
       isPending: false,
@@ -78,18 +82,20 @@ describe('Categories PageContent', () => {
   it('opens remove dialog and calls mutate on confirm', async () => {
     const user = userEvent.setup();
     mockUseCategories.mockReturnValue({
-      categories: [listCategory],
-      meta: {
-        limit: 10,
-        currentPage: 1,
-        pageCount: 1,
-        totalCount: 1,
+      data: {
+        data: listCategory,
+        meta: {
+          limit: 10,
+          currentPage: 1,
+          pageCount: 1,
+          totalCount: 1,
+        },
       },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useCategories>);
 
     render(<PageContent />);
 
@@ -103,18 +109,20 @@ describe('Categories PageContent', () => {
   it('closes remove dialog without calling mutate when Cancel', async () => {
     const user = userEvent.setup();
     mockUseCategories.mockReturnValue({
-      categories: [listCategory],
-      meta: {
-        limit: 10,
-        currentPage: 1,
-        pageCount: 1,
-        totalCount: 1,
+      data: {
+        data: listCategory,
+        meta: {
+          limit: 10,
+          currentPage: 1,
+          pageCount: 1,
+          totalCount: 1,
+        },
       },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useCategories>);
 
     render(<PageContent />);
 
@@ -128,18 +136,20 @@ describe('Categories PageContent', () => {
   it('shows delete API error in the dialog instead of only toast', async () => {
     const user = userEvent.setup();
     mockUseCategories.mockReturnValue({
-      categories: [listCategory],
-      meta: {
-        limit: 10,
-        currentPage: 1,
-        pageCount: 1,
-        totalCount: 1,
+      data: {
+        data: listCategory,
+        meta: {
+          limit: 10,
+          currentPage: 1,
+          pageCount: 1,
+          totalCount: 1,
+        },
       },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
+    } as unknown as ReturnType<typeof useCategories>);
     mutateDelete.mockImplementation((_id, options) => {
       void Promise.resolve().then(() => {
         options?.onError?.(new Error('Category in use'));

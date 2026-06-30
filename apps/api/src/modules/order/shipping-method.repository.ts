@@ -1,7 +1,7 @@
 import type { Repository } from 'typeorm';
 
 import { BaseRepository } from '@/shared/repositories/base.repository';
-import { SHIPPING_METHOD_STATUS } from '@/shared/enums/order';
+import { SHIPPING_METHOD_STATUS } from '@repo/types';
 
 import { ShippingMethod } from './shipping-method.entity';
 

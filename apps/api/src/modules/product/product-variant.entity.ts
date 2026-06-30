@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { AuditableEntity } from '@/shared/entities/auditable';
-import { DISCOUNT_TYPE, PRODUCT_UNIT } from '@/shared/enums/product';
+import { DISCOUNT_TYPE, PRODUCT_UNIT } from '@repo/types';
 
 import { Product } from './product.entity';
 
