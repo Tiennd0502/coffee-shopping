@@ -17,6 +17,9 @@ import { ROLE_FILTER_OPTIONS, USERS_TABLE_COLUMNS } from '@/constants/user';
 import { useDeleteUser, useUpdateUserRole, useUsers } from '@/hooks/useUser';
 import { useUrlState } from '@/hooks/useUrlState';
 
+// Utils
+import { userUrlSchema } from '@/utils/url';
+
 // Components
 import Breadcrumb from '@/components/Breadcrumb';
 import AlertDialog from '@/components/AlertDialog';
@@ -26,9 +29,6 @@ import { Select } from '@/components/Select';
 import { SearchInput } from '@/components/SearchInput';
 import { Button } from '@/components/ui/button';
 import { UserTableRow } from '@/sections/UserTableRow';
-
-// Utils
-import { userUrlSchema } from '@/utils/url';
 import Loading from '@/components/Loading';
 
 export const PageContent = () => {
@@ -68,16 +68,18 @@ export const PageContent = () => {
       ? role
       : null;
 
-  const { users, meta, isLoading, isError, errorMessage, refetch } = useUsers({
+  const { data, isLoading, isError, error, refetch } = useUsers({
     page,
     limit,
     search: search.trim(),
     role: normalizedRole ?? undefined,
   });
 
+  const { data: users = [], meta } = data ?? {};
+
   const totalPages = Math.max(1, meta?.pageCount ?? 1);
-  const totalCount = meta?.totalCount ?? users.length;
-  const showingCount = users.length;
+  const totalCount = meta?.totalCount ?? users?.length ?? 0;
+  const showingCount = users?.length ?? 0;
   const [pendingRoleUserId, setPendingRoleUserId] = useState<string | null>(null);
   const [pendingDeleteUser, setPendingDeleteUser] = useState<User | null>(null);
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
@@ -282,7 +284,7 @@ export const PageContent = () => {
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <p className="text-muted-foreground">{errorMessage}</p>
+            <p className="text-muted-foreground first-letter:uppercase">{error?.message}</p>
             <Button
               className="w-fit px-6"
               variant="destructive"

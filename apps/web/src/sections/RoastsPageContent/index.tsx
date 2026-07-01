@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 // Types
-import { PRODUCT_STATUS, type ROAST_LEVEL } from '@/types/product';
+import { PRODUCT_STATUS, type ROAST_LEVEL, type PRODUCT_SORT } from '@repo/types';
 
 // Constants
 import {
@@ -11,21 +11,18 @@ import {
   ROAST_PRICE_MAX,
   ROAST_PRICE_MIN,
   ROAST_SORT_OPTIONS,
-  ROAST_SORT_VALUE,
-  type RoastSortValue,
 } from '@/constants/roast';
 import { SEARCH_URL_DEBOUNCE_MS } from '@/constants/common';
+import { EMPTY_IMAGE } from '@/constants/images';
 
 // Hooks
 import { useUrlState } from '@/hooks/useUrlState';
-import { useProducts } from '@/hooks/useProduct';
-
-// Services
-import type { ProductOptions } from '@/services/product';
+import { useProducts, type ProductQueryParams } from '@/hooks/useProduct';
 
 // Utils
 import { mapProductToRoastCollection } from '@/utils/product';
 import { shopRoastsUrlSchema } from '@/utils/url';
+import { getLabelFromOptions } from '@/utils/common';
 
 // Components
 import { BadgeAction } from '@/components/BadgeAction';
@@ -33,10 +30,6 @@ import { ProductsGrid } from '@/components/ProductsGrid';
 import { Button } from '@/components/ui/button';
 import { PaginationBar } from '@/components/Pagination';
 import FiltersPanel from '../FiltersPanel';
-import { EMPTY_IMAGE } from '@/constants/images';
-
-const getRoastLabel = (value: ROAST_LEVEL) =>
-  ROAST_LEVEL_OPTIONS.find((option) => option.value === value)?.label ?? value;
 
 export default function RoastsPageContent() {
   const { state: urlState, update: updateUrl } = useUrlState(shopRoastsUrlSchema);
@@ -86,9 +79,9 @@ export default function RoastsPageContent() {
     return [lo, hi];
   }, [urlMinPrice, urlMaxPrice]);
 
-  const listParams = useMemo((): ProductOptions => {
+  const listParams = useMemo((): ProductQueryParams => {
     const [lo, hi] = priceRange;
-    const params: ProductOptions = {
+    const params: ProductQueryParams = {
       page: listPage,
       limit: listLimit,
       search: listSearch.trim(),
@@ -98,10 +91,10 @@ export default function RoastsPageContent() {
       params.minPrice = lo;
       params.maxPrice = hi;
     }
-    if (selectedRoastLevels.length > 0) {
-      params.roastLevel = selectedRoastLevels.join(',');
+    if (selectedRoastLevels?.length) {
+      params.roastLevel = selectedRoastLevels;
     }
-    if (sortBy !== ROAST_SORT_VALUE.CURATED) {
+    if (!!sortBy) {
       params.sortBy = sortBy;
     }
     return params;
@@ -113,11 +106,13 @@ export default function RoastsPageContent() {
       selectedRoastLevels.length > 0 ||
       urlMinPrice > ROAST_PRICE_MIN ||
       urlMaxPrice < ROAST_PRICE_MAX ||
-      sortBy !== ROAST_SORT_VALUE.CURATED,
+      sortBy,
     [listSearch, selectedRoastLevels.length, urlMinPrice, urlMaxPrice, sortBy],
   );
 
-  const { products, meta, isLoading, isError, errorMessage, refetch } = useProducts(listParams);
+  const { data, isLoading, isError, error, refetch } = useProducts(listParams);
+
+  const { data: products = [], meta } = data ?? {};
 
   const collections = useMemo(
     () => products.map((product) => mapProductToRoastCollection(product, EMPTY_IMAGE)),
@@ -144,10 +139,10 @@ export default function RoastsPageContent() {
     updateUrl({ minPrice: lo, maxPrice: hi, page: 1 });
   };
 
-  const handleSortByChange = (next: RoastSortValue) => {
+  const handleSortByChange = (next: PRODUCT_SORT) => {
     updateUrl({
       page: 1,
-      sortBy: next === ROAST_SORT_VALUE.CURATED ? null : next,
+      sortBy: next,
     });
   };
 
@@ -208,8 +203,8 @@ export default function RoastsPageContent() {
             </div>
           ) : isError ? (
             <section className="space-y-4 rounded-3xl bg-surface-container-low p-6 text-center">
-              <p className="text-on-surface-variant">
-                {errorMessage ?? 'Unable to load products.'}
+              <p className="text-on-surface-variant first-letter:uppercase">
+                {error?.message ?? 'Unable to load products.'}
               </p>
               <Button onClick={() => void refetch()} variant="outline">
                 Retry
@@ -247,7 +242,7 @@ export default function RoastsPageContent() {
                           variant="secondary"
                           className="h-6!"
                           badgeClassName="h-6! w-fit! text-xs"
-                          label={getRoastLabel(roastLevel)}
+                          label={getLabelFromOptions(roastLevel, ROAST_LEVEL_OPTIONS)}
                           onClick={() => handleToggleRoastLevel(roastLevel)}
                         />
                       ))}

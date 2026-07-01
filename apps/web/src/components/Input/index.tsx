@@ -186,7 +186,11 @@ const InputField = React.forwardRef<HTMLElement, InputProps>(function InputField
         </p>
       )}
       {hasError && (
-        <p id={errorId} role="alert" className="mt-2 text-xs font-medium text-destructive">
+        <p
+          id={errorId}
+          role="alert"
+          className="mt-2 text-xs font-medium text-destructive first-letter:uppercase"
+        >
           {errorMessage}
         </p>
       )}

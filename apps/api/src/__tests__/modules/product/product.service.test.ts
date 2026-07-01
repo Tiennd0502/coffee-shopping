@@ -14,7 +14,7 @@ import { ProductVariantRepository } from '@/modules/product/product-variant.repo
 import { Product } from '@/modules/product/product.entity';
 import { Category } from '@/modules/category/category.entity';
 import { CategoryRepository } from '@/modules/category/category.repository';
-import { PRODUCT_SORT, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@/shared/enums/product';
+import { PRODUCT_SORT, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
 import { BadRequestError, ConflictError, NotFoundError } from '@/shared/errors/app';
 import { withRandomSkuSuffix } from '@/shared/utils/sku';
 import { slugFrom } from '@/shared/utils/slug';

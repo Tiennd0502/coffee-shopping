@@ -11,7 +11,7 @@ import {
 } from '@/config/swagger';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
-import { ORDER_STATUS, SHIPPING_STATUS } from '@/shared/enums/order';
+import { ORDER_STATUS, SHIPPING_STATUS } from '@repo/types';
 import {
   CreateOrderSchema,
   ListOrdersQuerySchema,

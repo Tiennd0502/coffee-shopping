@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 import { ERROR_MESSAGES } from '@/constants/messages';
-import { PAYMENT_METHOD, type CheckoutFormValues } from '@/types/checkout';
+import { type CheckoutFormValues } from '@/types/checkout';
+import { PAYMENT_METHOD } from '@repo/types';
 
 // const cardNumberRegex = /^\d{13,19}$/
 // const expiryDateRegex = /^(0[1-9]|1[0-2])\/\d{2}$/

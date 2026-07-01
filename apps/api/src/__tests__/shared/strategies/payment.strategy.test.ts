@@ -1,5 +1,5 @@
 import { Order } from '@/modules/order/order.entity';
-import { PAYMENT_STATUS } from '@/shared/enums/order';
+import { PAYMENT_STATUS } from '@repo/types';
 import { CodPaymentStrategy } from '@/shared/strategies/payment/cod';
 import { PaypalPaymentStrategy } from '@/shared/strategies/payment/paypal';
 import { StripePaymentStrategy } from '@/shared/strategies/payment/stripe';

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 // Types
 import type { ProductFormValues, ProductImagePayload, ProductPayload } from '@/types/product';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
 
 // Constants
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
@@ -57,7 +57,7 @@ interface ImageValidationErrors {
 }
 
 const roastLevels: ROAST_LEVEL[] = [ROAST_LEVEL.LIGHT, ROAST_LEVEL.MEDIUM, ROAST_LEVEL.DARK];
-const DEFAULT_TASTING_NOTES = ['Chocolate', 'Hazelnut', 'Berries'];
+const DEFAULT_TASTING_NOTES = ['Chocolate'];
 
 const PRODUCT_FORM_DEFAULT_VALUES: ProductFormValues = {
   categoryId: '',
@@ -74,6 +74,8 @@ const PRODUCT_FORM_DEFAULT_VALUES: ProductFormValues = {
   quantity: 0,
   origin: '',
   processingMethod: '',
+  status: PRODUCT_STATUS.DRAFT,
+  tastingNotes: '',
 };
 
 const getRoastIndex = (value: ROAST_LEVEL) => {
@@ -97,8 +99,9 @@ const parseFormNumber = (value: unknown): number | undefined => {
 
 const PageContent = () => {
   const { mutate, isPending } = useCreateProduct();
-  const { categories, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
-  const activeCategories = categories.filter((category) => !category.deletedAt);
+  const { data, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const { data: categories = [] } = data ?? {};
+  const activeCategories = categories?.filter((category) => !category.deletedAt);
   const [avatarImage, setAvatarImage] = useState<LocalImage | null>(null);
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [imageErrors, setImageErrors] = useState<ImageValidationErrors>({
@@ -108,7 +111,6 @@ const PageContent = () => {
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isListedOnStorefront, setIsListedOnStorefront] = useState(false);
   const [tastingNotes, setTastingNotes] = useState<string[]>(DEFAULT_TASTING_NOTES);
-  const [pendingNote, setPendingNote] = useState('');
   const categoryOptions = getCategoryOptions(activeCategories);
 
   const {
@@ -138,7 +140,6 @@ const PageContent = () => {
     setGalleryImages([]);
     setImageErrors({ avatar: '', gallery: '' });
     setIsListedOnStorefront(false);
-    setPendingNote('');
     setTastingNotes([]);
     toast.success(SUCCESS_MESSAGES.DRAFT_DISCARDED);
   };
@@ -186,11 +187,11 @@ const PageContent = () => {
   };
 
   const handleAddNote = () => {
-    const next = pendingNote.trim();
-    if (!next) return;
-    if (tastingNotes.includes(next)) return;
-    setTastingNotes((prev) => [...prev, next]);
-    setPendingNote('');
+    const pendingNote = watch('tastingNotes');
+    if (!pendingNote) return;
+    if (tastingNotes.includes(pendingNote)) return;
+    setTastingNotes((prev) => [...prev, pendingNote]);
+    setValue('tastingNotes', '');
   };
 
   const buildImagesPayload = ({
@@ -286,14 +287,14 @@ const PageContent = () => {
     const payload: ProductPayload = {
       categoryId: data.categoryId,
       name: data.name.trim(),
-      description: data.description.trim(),
+      description: data.description?.trim() || '',
       roastLevel: data.roastLevel,
       isOrganic: data.isOrganic,
       isFairTrade: data.isFairTrade,
       status: isListedOnStorefront ? PRODUCT_STATUS.ACTIVE : PRODUCT_STATUS.DRAFT,
       tastingNotes: tastingNotes.join(', '),
-      origin: data.origin.trim(),
-      processingMethod: data.processingMethod.trim(),
+      origin: data.origin?.trim() || '',
+      processingMethod: data.processingMethod?.trim() || '',
       variants: [
         {
           sku: renderProductSku({
@@ -303,8 +304,8 @@ const PageContent = () => {
           weight: Number(data.weight),
           unit: data.unit,
           price: Number(data.price),
-          discountType: Number(data.discountValue) > 0 ? data.discountType : null,
-          discountValue: Number(data.discountValue) > 0 ? Number(data.discountValue) : null,
+          discountType: data.discountType,
+          discountValue: data.discountValue || 0,
           quantity: Number(data.quantity),
         },
       ],
@@ -323,7 +324,6 @@ const PageContent = () => {
         setAvatarImage(null);
         setGalleryImages([]);
         setIsListedOnStorefront(false);
-        setPendingNote('');
         setTastingNotes([]);
         setIsUploadingImages(false);
       },
@@ -480,23 +480,36 @@ const PageContent = () => {
                     )}
                   />
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="product-status"
-                      className="mb-0 text-xs font-semibold tracking-wider"
-                    >
-                      Active Status
-                    </Label>
-                    <div className="flex h-14 w-full mt-2 align-center items-center gap-3 rounded-xs px-3">
-                      <Switch
-                        id="product-status"
-                        checked={isListedOnStorefront}
-                        onCheckedChange={(checked) => setIsListedOnStorefront(checked === true)}
-                        disabled={isSubmitting}
-                      />
-                      <span className="text-sm leading-none text-on-surface-variant">
-                        Listed on Storefront
-                      </span>
-                    </div>
+                    <Controller
+                      control={control}
+                      name="status"
+                      render={({ field: { value, onChange } }) => (
+                        <>
+                          <Label
+                            htmlFor="product-status"
+                            className="mb-0 text-xs font-semibold tracking-wider"
+                          >
+                            Active Status
+                          </Label>
+                          <div className="flex h-14 w-full mt-2 align-center items-center gap-3 rounded-xs px-3">
+                            <Switch
+                              name="status"
+                              id="product-status"
+                              checked={value === PRODUCT_STATUS.ACTIVE}
+                              onCheckedChange={(checked) =>
+                                onChange(
+                                  checked === true ? PRODUCT_STATUS.ACTIVE : PRODUCT_STATUS.DRAFT,
+                                )
+                              }
+                              disabled={isSubmitting}
+                            />
+                            <span className="text-sm leading-none text-on-surface-variant">
+                              Listed on Storefront
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    />
                   </div>
                 </div>
               </div>
@@ -536,7 +549,7 @@ const PageContent = () => {
                 <Input
                   className="h-14"
                   label="Base Price"
-                  type="text"
+                  type="number"
                   inputMode="decimal"
                   placeholder="e.g. 24.95"
                   startIcon={<DollarIcon className="size-4" />}
@@ -547,7 +560,7 @@ const PageContent = () => {
                 <Input
                   className="h-14"
                   label="Initial Quantity"
-                  type="number"
+                  type="text"
                   min={1}
                   step={1}
                   disabled={isSubmitting}
@@ -726,25 +739,33 @@ const PageContent = () => {
               </div>
               <div className="mt-4 border-t border-outline-variant/20 pt-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex min-h-12 flex-1 items-center gap-3 rounded-full bg-transparent px-1 text-muted-foreground">
-                    <span className="text-lg leading-none opacity-60">#</span>
-                    <input
-                      value={pendingNote}
-                      onChange={(event) => setPendingNote(event.target.value)}
-                      placeholder="Add a new flavor note (e.g. Caramel, Citrus)..."
-                      className="w-full border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    className="h-11.5 w-auto rounded-full bg-primary px-5 text-xs font-semibold tracking-wide uppercase"
-                    onClick={handleAddNote}
-                    disabled={isSubmitting || !pendingNote.length}
-                  >
-                    <Plus className="size-3.5" aria-hidden />
-                    Add note
-                  </Button>
+                  <Controller
+                    control={control}
+                    name="tastingNotes"
+                    render={({ field: { value, onChange } }) => (
+                      <>
+                        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-full bg-transparent px-1 text-muted-foreground">
+                          <span className="text-lg leading-none opacity-60">#</span>
+                          <input
+                            value={value}
+                            onChange={onChange}
+                            placeholder="Add a new flavor note (e.g. Caramel, Citrus)..."
+                            className="w-full border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          className="h-11.5 w-auto rounded-full bg-primary px-5 text-xs font-semibold tracking-wide uppercase"
+                          onClick={handleAddNote}
+                          disabled={isSubmitting || !value?.length}
+                        >
+                          <Plus className="size-3.5" aria-hidden />
+                          Add note
+                        </Button>
+                      </>
+                    )}
+                  />
                 </div>
               </div>
             </div>

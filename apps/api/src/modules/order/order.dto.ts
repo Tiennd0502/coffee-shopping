@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-import {
-  ORDER_STATUS,
-  PAYMENT_METHOD,
-  PAYMENT_STATUS,
-  SHIPPING_STATUS,
-} from '@/shared/enums/order';
+import { ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS, SHIPPING_STATUS } from '@repo/types';
 import { VALIDATION_RULES } from '@/shared/constants';
 
 export const CreateOrderItemSchema = z.object({

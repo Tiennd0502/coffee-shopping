@@ -6,10 +6,10 @@ import { PAGE_SIZE } from '@/constants/common';
 import { API_FALLBACK_ERRORS } from '@/constants/messages';
 import { ROUTES } from '@/constants/routes';
 import { useCategories } from '@/hooks/useCategory';
-import { useDeleteProduct, useProducts } from '@/hooks/useProduct';
+import { useDeleteProduct, useProducts, type ProductQueryParams } from '@/hooks/useProduct';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { type ProductOptions } from '@/services/product';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL, type Product } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
+import type { Product } from '@/types/product';
 
 let navQueryString = '';
 
@@ -97,7 +97,7 @@ const productsFixture: Product[] = [
       {
         sku: 'SKU-1',
         weight: 250,
-        unit: 'g',
+        unit: PRODUCT_UNIT.G,
         price: 24,
         discountType: DISCOUNT_TYPE.PERCENT,
         discountValue: 10,
@@ -124,7 +124,7 @@ const productsFixture: Product[] = [
       {
         sku: 'SKU-2',
         weight: 1,
-        unit: 'unit',
+        unit: PRODUCT_UNIT.KG,
         price: 85,
         discountType: null,
         discountValue: null,
@@ -151,7 +151,7 @@ const productsFixture: Product[] = [
       {
         sku: 'SKU-3',
         weight: 500,
-        unit: 'g',
+        unit: PRODUCT_UNIT.G,
         price: 18.5,
         discountType: DISCOUNT_TYPE.FIXED,
         discountValue: 2,
@@ -164,7 +164,7 @@ const productsFixture: Product[] = [
   },
 ];
 
-function mockProductsByApiParams(params: ProductOptions = {}) {
+function mockProductsByApiParams(params: ProductQueryParams) {
   const page = params.page ?? 1;
   const search = params.search?.trim().toLowerCase() ?? '';
 
@@ -180,16 +180,18 @@ function mockProductsByApiParams(params: ProductOptions = {}) {
   const slice = list.slice(start, start + pageSize);
 
   return {
-    products: slice,
-    meta: {
-      limit: pageSize,
-      currentPage: page,
-      pageCount,
-      totalCount,
+    data: {
+      data: slice,
+      meta: {
+        limit: pageSize,
+        currentPage: page,
+        pageCount,
+        totalCount,
+      },
     },
     isLoading: false,
     isError: false,
-    errorMessage: null,
+    error: null,
     refetch: refetchMock,
   };
 }
@@ -214,37 +216,41 @@ describe('Dashboard products page', () => {
       () => new URLSearchParams(navQueryString) as ReturnType<typeof useSearchParams>,
     );
     mockUseCategories.mockReturnValue({
-      categories: [
-        {
-          id: 'whole-bean',
-          name: 'Whole Bean',
-          slug: 'whole-bean',
-          createdBy: null,
-          updatedBy: null,
-          deletedBy: null,
-          createdAt: null,
-          updatedAt: null,
-          deletedAt: null,
-        },
-        {
-          id: 'brew-gear',
-          name: 'Brew Gear',
-          slug: 'brew-gear',
-          createdBy: null,
-          updatedBy: null,
-          deletedBy: null,
-          createdAt: null,
-          updatedAt: null,
-          deletedAt: null,
-        },
-      ],
-      meta: null,
+      data: {
+        data: [
+          {
+            id: 'whole-bean',
+            name: 'Whole Bean',
+            slug: 'whole-bean',
+            createdBy: null,
+            updatedBy: null,
+            deletedBy: null,
+            createdAt: null,
+            updatedAt: null,
+            deletedAt: null,
+          },
+          {
+            id: 'brew-gear',
+            name: 'Brew Gear',
+            slug: 'brew-gear',
+            createdBy: null,
+            updatedBy: null,
+            deletedBy: null,
+            createdAt: null,
+            updatedAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: null,
+      },
       isLoading: false,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: jest.fn(),
-    });
-    mockUseProducts.mockImplementation((params) => mockProductsByApiParams(params));
+    } as unknown as ReturnType<typeof useCategories>);
+    mockUseProducts.mockImplementation(
+      (params) => mockProductsByApiParams(params) as unknown as ReturnType<typeof useProducts>,
+    );
     mockUseDeleteProduct.mockReturnValue({
       mutate: mutateDeleteProduct,
       isPending: false,
@@ -331,13 +337,20 @@ describe('Dashboard products page', () => {
 
   it('renders loading state', () => {
     mockUseProducts.mockReturnValue({
-      products: [],
-      meta: null,
+      data: {
+        data: [],
+        meta: {
+          limit: PAGE_SIZE,
+          currentPage: 1,
+          pageCount: 1,
+          totalCount: 0,
+        },
+      },
       isLoading: true,
       isError: false,
-      errorMessage: null,
+      error: null,
       refetch: refetchMock,
-    });
+    } as unknown as ReturnType<typeof useProducts>);
 
     renderProductsPage();
 
@@ -345,19 +358,24 @@ describe('Dashboard products page', () => {
   });
 
   it('renders empty state when list has no data', () => {
-    mockUseProducts.mockImplementation(() => ({
-      products: [],
-      meta: {
-        limit: PAGE_SIZE,
-        currentPage: 1,
-        pageCount: 1,
-        totalCount: 0,
-      },
-      isLoading: false,
-      isError: false,
-      errorMessage: null,
-      refetch: refetchMock,
-    }));
+    mockUseProducts.mockImplementation(
+      () =>
+        ({
+          data: {
+            data: [],
+            meta: {
+              limit: PAGE_SIZE,
+              currentPage: 1,
+              pageCount: 1,
+              totalCount: 0,
+            },
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+          refetch: refetchMock,
+        }) as unknown as ReturnType<typeof useProducts>,
+    );
 
     renderProductsPage();
 
@@ -387,14 +405,24 @@ describe('Dashboard products page', () => {
 
   it('renders error state and retries', async () => {
     const user = userEvent.setup();
-    mockUseProducts.mockImplementation(() => ({
-      products: [],
-      meta: null,
-      isLoading: false,
-      isError: true,
-      errorMessage: API_FALLBACK_ERRORS.PRODUCTS_LOAD,
-      refetch: refetchMock,
-    }));
+    mockUseProducts.mockImplementation(
+      () =>
+        ({
+          data: {
+            data: [],
+            meta: {
+              limit: PAGE_SIZE,
+              currentPage: 1,
+              pageCount: 1,
+              totalCount: 0,
+            },
+          },
+          isLoading: false,
+          isError: true,
+          error: { message: API_FALLBACK_ERRORS.PRODUCTS_LOAD },
+          refetch: refetchMock,
+        }) as unknown as ReturnType<typeof useProducts>,
+    );
 
     renderProductsPage();
 

@@ -1,10 +1,4 @@
-export enum PAYMENT_METHOD {
-  STRIPE = 'STRIPE',
-  PAYPAL = 'PAYPAL',
-  COD = 'COD',
-}
-
-export type PaymentMethod = PAYMENT_METHOD;
+import type { PAYMENT_METHOD } from '@repo/types';
 
 export interface AddressSnapshot {
   firstName: string;
@@ -24,5 +18,5 @@ export interface CheckoutCardFormValues {
 }
 
 export interface CheckoutFormValues extends AddressSnapshot, CheckoutCardFormValues {
-  paymentMethod: PaymentMethod;
+  paymentMethod: PAYMENT_METHOD;
 }

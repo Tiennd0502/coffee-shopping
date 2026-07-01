@@ -6,6 +6,7 @@ export const SEARCH_URL_DEBOUNCE_MS = 300;
 
 export const LOCAL_STORAGE_KEYS = {
   MANUAL_SIGN_OUT: 'manualSignOut',
+  CART_STORAGE_KEY: 'coffeehub-cart',
 };
 
 export const CLERK_SESSION_TEMPLATE = 'custom-session';

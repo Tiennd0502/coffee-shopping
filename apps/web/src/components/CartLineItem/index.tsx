@@ -37,7 +37,7 @@ export function CartLineItem({
       )}
     >
       <div className="relative size-24 shrink-0 overflow-hidden rounded-2xl bg-surface-container-high md:size-28">
-        <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
+        <Image src={item.imageUrl} alt={item.name} fill={true} className="object-cover" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">

@@ -4,13 +4,6 @@ import type React from 'react';
 
 import { ProductReviewsSection } from '@/components/ProductReviewsSection';
 
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: ({ alt, src, ...rest }: React.ImgHTMLAttributes<HTMLImageElement> & { src: string }) => (
-    <img alt={alt ?? ''} src={src} {...rest} />
-  ),
-}));
-
 const toastInfo = jest.fn();
 jest.mock('sonner', () => ({
   toast: {

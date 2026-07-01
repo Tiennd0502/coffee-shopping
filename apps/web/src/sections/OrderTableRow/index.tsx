@@ -20,7 +20,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EMPTY_IMAGE } from '@/constants/images';
-import { type ORDER_STATUS, type Order, type SHIPPING_STATUS } from '@/types/order';
+import { type Order } from '@/types/order';
+import type { ORDER_STATUS, SHIPPING_STATUS } from '@repo/types';
 import { formatPrice } from '@/utils/common';
 import {
   formatOrderCustomerName,

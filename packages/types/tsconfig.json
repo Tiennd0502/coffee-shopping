@@ -2,8 +2,8 @@
   "extends": "@repo/typescript-config/base.json",
   "compilerOptions": {
     "noEmit": true,
-    "module": "esnext",
-    "moduleResolution": "bundler"
+    "module": "CommonJS",
+    "moduleResolution": "node"
   },
   "include": ["src"]
 }

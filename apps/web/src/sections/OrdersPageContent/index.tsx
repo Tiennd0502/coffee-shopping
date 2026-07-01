@@ -4,14 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Download, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
-import AlertDialog from '@/components/AlertDialog';
-import Breadcrumb from '@/components/Breadcrumb';
-import Table from '@/components/Table';
-import { PaginationBar } from '@/components/Pagination';
-import { SearchInput } from '@/components/SearchInput';
-import { Select } from '@/components/Select';
-import StatsCards from '@/components/StatsCards';
-import { Button } from '@/components/ui/button';
+// Types
+import type { Order } from '@/types/order';
+import type { ORDER_STATUS, SHIPPING_STATUS } from '@repo/types';
+
+// Constants
 import { SEARCH_URL_DEBOUNCE_MS } from '@/constants/common';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
 import {
@@ -22,18 +19,31 @@ import {
   // SHIPPING_STATUS_OPTIONS,
 } from '@/constants/order';
 import { ROUTES } from '@/constants/routes';
+
+// Hooks | Stores
 import {
   useDeleteOrder,
   useOrders,
   useUpdateOrderShippingStatus,
   useUpdateOrderStatus,
 } from '@/hooks/useOrder';
-import type { ORDER_STATUS, Order, SHIPPING_STATUS } from '@/types/order';
 import { useUrlState } from '@/hooks/useUrlState';
+
+// Utils
+import { ordersUrlSchema } from '@/utils/url';
+import { buildOrderDashboardStats } from '@/utils/order';
+
+// Components
+import AlertDialog from '@/components/AlertDialog';
+import Breadcrumb from '@/components/Breadcrumb';
+import Table from '@/components/Table';
+import { PaginationBar } from '@/components/Pagination';
+import { SearchInput } from '@/components/SearchInput';
+import { Select } from '@/components/Select';
+import StatsCards from '@/components/StatsCards';
+import { Button } from '@/components/ui/button';
 import { OrderDetailModal } from '@/sections/OrderDetailModal';
 import { OrderTableRow } from '@/sections/OrderTableRow';
-import { buildOrderDashboardStats } from '@/utils/order';
-import { ordersUrlSchema } from '@/utils/url';
 import Loading from '@/components/Loading';
 
 export default function OrdersPageContent() {
@@ -76,17 +86,18 @@ export default function OrdersPageContent() {
     return () => window.clearTimeout(id);
   }, [searchInput]);
 
-  const { orders, meta, isLoading, isError, errorMessage, refetch } = useOrders({
+  const { data, isLoading, isError, error, refetch } = useOrders({
     page,
     limit,
     search: search.trim(),
     status: status ?? undefined,
     shippingStatus: shippingStatus ?? undefined,
   });
+  const { data: orders = [], meta } = data ?? {};
 
   const totalPages = Math.max(1, meta?.pageCount ?? 1);
-  const totalCount = meta?.totalCount ?? orders.length;
-  const showingCount = orders.length;
+  const totalCount = meta?.totalCount ?? orders?.length ?? 0;
+  const showingCount = orders?.length ?? 0;
 
   useEffect(() => {
     if (page > totalPages) {
@@ -291,7 +302,7 @@ export default function OrdersPageContent() {
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <p className="text-muted-foreground">{errorMessage}</p>
+            <p className="text-muted-foreground first-letter:uppercase">{error?.message}</p>
             <Button
               className="w-fit px-6"
               variant="destructive"

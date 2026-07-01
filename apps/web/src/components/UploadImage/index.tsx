@@ -148,7 +148,7 @@ const UploadImage = ({
           <Image
             src={imageUrl ?? ''}
             alt={imageAlt}
-            fill
+            fill={true}
             sizes="100vw"
             className="object-cover"
             priority

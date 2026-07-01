@@ -2,14 +2,13 @@
 
 import type * as React from 'react';
 
-import { type RoastSortValue } from '@/constants/roast';
-import type { ROAST_LEVEL } from '@/types/product';
+import { type ROAST_LEVEL, type PRODUCT_SORT } from '@repo/types';
 import { PriceRangeSlider } from '@/components/PriceRangeSlider';
 import { SearchInput } from '@/components/SearchInput';
 import { Select } from '@/components/Select';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { type OptionItem } from '@/types/common';
+import { type OptionItem } from '@repo/types';
 import { cn } from '@/utils/styles';
 
 export interface FiltersPanelProps {
@@ -19,12 +18,12 @@ export interface FiltersPanelProps {
   onPriceRangeChange: (next: [number, number]) => void;
   minPrice: number;
   maxPrice: number;
-  roastLevelOptions: { value: ROAST_LEVEL; label: string }[];
+  roastLevelOptions: OptionItem<ROAST_LEVEL>[];
   selectedRoastLevels: ROAST_LEVEL[];
   onToggleRoastLevel: (value: ROAST_LEVEL) => void;
   sortOptions: OptionItem[];
-  sortBy: RoastSortValue;
-  onSortByChange: (value: RoastSortValue) => void;
+  sortBy: PRODUCT_SORT;
+  onSortByChange: (value: PRODUCT_SORT) => void;
   disabled?: boolean;
 }
 
@@ -113,7 +112,7 @@ export default function FiltersPanel({
           classNameTrigger="h-11 bg-surface-container-high rounded-sm"
           onValueChange={(value) => {
             if (typeof value !== 'string') return;
-            onSortByChange(value as RoastSortValue);
+            onSortByChange(value as PRODUCT_SORT);
           }}
           disabled={disabled}
         />

@@ -1,7 +1,7 @@
 import type { Repository } from 'typeorm';
 
 import { BaseRepository } from '@/shared/repositories/base.repository';
-import type { PaginatedResponse } from '@/shared/types/response';
+import type { PaginatedResponse } from '@repo/types';
 
 import type { ListUsersQuery } from './user.dto';
 import { User } from './user.entity';

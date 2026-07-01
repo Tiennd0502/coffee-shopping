@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 
 import { AuditableEntity } from '@/shared/entities/auditable';
-import { PRODUCT_STATUS, ROAST_LEVEL } from '@/shared/enums/product';
+import { PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
 import { Category } from '@/modules/category/category.entity';
 
 import { ProductImage } from './product-image.entity';

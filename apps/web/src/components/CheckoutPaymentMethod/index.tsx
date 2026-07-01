@@ -3,17 +3,17 @@
 import { BadgeDollarSign, CreditCard, Wallet } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { PAYMENT_METHOD, type PaymentMethod } from '@/types/checkout';
+import { PAYMENT_METHOD } from '@repo/types';
 import { cn } from '@/utils/styles';
 
 export interface CheckoutPaymentMethodProps {
-  value: PaymentMethod;
-  onChange: (value: PaymentMethod) => void;
+  value: PAYMENT_METHOD;
+  onChange: (value: PAYMENT_METHOD) => void;
   disabled?: boolean;
 }
 
 const PAYMENT_OPTIONS: {
-  value: PaymentMethod;
+  value: PAYMENT_METHOD;
   label: string;
   icon: typeof CreditCard;
 }[] = [

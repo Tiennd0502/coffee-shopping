@@ -3,15 +3,25 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Quote } from 'lucide-react';
 
-import { buttonVariants } from '@/components/ui/button';
+// Types
+import type { Product } from '@/types/product';
+import { PRODUCT_STATUS, type PaginatedResponse } from '@repo/types';
+
+// Constants
 import { EMPTY_IMAGE } from '@/constants/images';
 import { MENU, MENU_DISABLED_HINT } from '@/constants/nav';
-import { shopRoastDetailPath } from '@/constants/routes';
-import { fetchProducts } from '@/services/product';
-import { PRODUCT_STATUS } from '@/types/product';
+import { API_ROUTES, ROUTES } from '@/constants/routes';
+
+// Services
+import { apiClient } from '@/services/api';
+
+// Utils
 import { formatPrice } from '@/utils/common';
 import { mapProductToRoastCollection } from '@/utils/product';
 import { cn } from '@/utils/styles';
+
+// Components
+import { buttonVariants } from '@/components/ui/button';
 
 export const metadata: Metadata = {
   title: 'CoffeeHub | The Sensory Experience',
@@ -63,12 +73,20 @@ const HOME_DISABLED_ACTIONS = {
   ETHICAL_SOURCE: MENU.some((item) => item.href === '/contact' && item.disabled === true),
 } as const;
 
+type ProductsResult = { ok: true; products: Product[] } | { ok: false; error: string };
+
 const HomePage = async () => {
-  const productsResult = await fetchProducts({
-    limit: 4,
-    page: 1,
-    status: PRODUCT_STATUS.ACTIVE,
-  });
+  let productsResult: ProductsResult;
+  try {
+    const result = await apiClient.get<PaginatedResponse<Product[]>>(API_ROUTES.PRODUCTS, {
+      query: { limit: 4, page: 1, status: PRODUCT_STATUS.ACTIVE },
+    });
+    productsResult = result
+      ? { ok: true, products: result.data }
+      : { ok: false, error: 'No products found' };
+  } catch {
+    productsResult = { ok: false, error: 'Could not load products' };
+  }
 
   const curatedProducts =
     productsResult.ok === true
@@ -138,8 +156,8 @@ const HomePage = async () => {
                 <Image
                   src={IMG.hero}
                   alt="Premium ceramic cup of black coffee on a dark wooden table with roasted beans"
-                  fill
                   priority
+                  fill={true}
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 28rem"
                 />
@@ -177,7 +195,7 @@ const HomePage = async () => {
                 curatedProducts.map((item) => (
                   <Link
                     key={item.id}
-                    href={shopRoastDetailPath(item.id)}
+                    href={ROUTES.ROASTS_DETAIL(item.id)}
                     className={cn(
                       'group flex flex-col space-y-4 text-inherit no-underline outline-none',
                       'transition-opacity hover:opacity-95',
@@ -186,9 +204,9 @@ const HomePage = async () => {
                   >
                     <div className="relative aspect-4/5 w-full overflow-hidden rounded-xl bg-surface-container-low">
                       <Image
+                        fill={true}
                         src={item.imageUrl}
                         alt={item.name}
-                        fill
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
                         sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       />
@@ -230,7 +248,7 @@ const HomePage = async () => {
                   <Image
                     src={IMG.story}
                     alt="Coffee smoke and steam against a dark background"
-                    fill
+                    fill={true}
                     className="object-cover"
                     sizes="(max-width: 1024px) 100vw, 50vw"
                   />

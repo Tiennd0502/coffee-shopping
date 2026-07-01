@@ -1,8 +1,14 @@
 import { Banknote, Package, Truck } from 'lucide-react';
 
 import type { StatCardItem } from '@/components/StatsCards';
-import type { ApiErrorResponse, ErrorDetail, ResponseMeta } from '@/types/api';
-import { ORDER_STATUS, SHIPPING_STATUS, type Order } from '@/types/order';
+import {
+  ORDER_STATUS,
+  SHIPPING_STATUS,
+  type ApiErrorResponse,
+  type ErrorDetail,
+  type Meta,
+} from '@repo/types';
+import { type Order } from '@/types/order';
 
 import { formatPrice } from './common';
 
@@ -90,10 +96,7 @@ export function getShippingStatusPresentation(status: SHIPPING_STATUS): {
   }
 }
 
-export function buildOrderDashboardStats(
-  orders: Order[],
-  meta: ResponseMeta | null,
-): StatCardItem[] {
+export function buildOrderDashboardStats(orders: Order[], meta?: Meta): StatCardItem[] {
   const totalCount = meta?.totalCount ?? orders.length;
   const pageIsPartial = meta != null && orders.length > 0 && meta.totalCount > orders.length;
 

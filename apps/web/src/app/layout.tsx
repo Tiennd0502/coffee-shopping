@@ -9,6 +9,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 
 import './globals.css';
+import SessionWatcher from '@/components/SessionWatcher';
 
 const fontBody = Plus_Jakarta_Sans({
   variable: '--font-body',
@@ -44,6 +45,7 @@ export default function RootLayout({
               <TooltipProvider delay={0}>
                 {children}
                 <Toaster />
+                <SessionWatcher />
               </TooltipProvider>
             </ThemeProvider>
           </QueryProvider>

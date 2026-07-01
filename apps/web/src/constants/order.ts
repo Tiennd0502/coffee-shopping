@@ -1,5 +1,5 @@
 import type { TableColumn } from '@/components/Table';
-import { ORDER_STATUS, SHIPPING_STATUS } from '@/types/order';
+import { ORDER_STATUS, SHIPPING_STATUS } from '@repo/types';
 
 export const OUT_OF_STOCK_LABEL = 'Out of stock';
 

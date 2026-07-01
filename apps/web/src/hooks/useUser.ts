@@ -1,139 +1,77 @@
 'use client';
 
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type QueryClient,
-} from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+// Types
+import type { PaginatedResponse, QueryParams, ResponseSuccess, User, USER_ROLE } from '@repo/types';
+
+// Constants
 import { LIST_QUERY_GC_MS, LIST_QUERY_STALE_MS, PAGE_SIZE } from '@/constants/common';
-import {
-  deleteUserById,
-  fetchUsers,
-  type FetchUsersOptions,
-  updateUserById,
-} from '@/services/user';
-import type { User, USER_ROLE } from '@repo/types';
-import { type ResponseMeta } from '@/types/api';
+import { API_ROUTES } from '@/constants/routes';
 
-export type UseUsersParams = FetchUsersOptions;
+// Services
+import { apiClient } from '@/services/api';
 
-const usersQueryRoot = ['users'] as const;
-
-function invalidateUserLists(queryClient: QueryClient) {
-  return queryClient.invalidateQueries({ queryKey: usersQueryRoot });
+export interface UsersQueryParams extends QueryParams {
+  role?: string;
 }
 
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { id: string; role: USER_ROLE }) => {
-      const result = await updateUserById(input.id, input.role);
-      if (!result.ok) {
-        throw new Error(result.error);
-      }
-      return result.user;
-    },
+    mutationFn: ({ id, role }: { id: string; role: USER_ROLE }) =>
+      apiClient.patch<ResponseSuccess<User>>(`${API_ROUTES.USERS}/${id}`, { role }),
     onSuccess: () => {
-      void invalidateUserLists(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
-}
-
-interface UsersListCache {
-  users: User[];
-  meta: ResponseMeta | null;
 }
 
 export function useDeleteUser() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (id: string) => {
-      const result = await deleteUserById(id);
-      if (!result.ok) {
-        throw new Error(result.error);
-      }
-      return result;
-    },
+    mutationFn: async (id: string) =>
+      apiClient.delete(`${API_ROUTES.USERS}/${encodeURIComponent(id)}`),
     onSuccess: async (_result, deletedId) => {
-      await queryClient.cancelQueries({ queryKey: usersQueryRoot });
-
-      const deleted = String(deletedId).trim();
-      queryClient.setQueriesData<UsersListCache>(
-        { queryKey: ['users', 'list'], type: 'all' },
+      queryClient.setQueriesData<PaginatedResponse<User[]>>(
+        { queryKey: ['users', 'list', deletedId] },
         (old) => {
           if (!old) return old;
-          const users = old.users.filter((u) => String(u.id ?? '').trim() !== deleted);
-          if (users.length === old.users.length) return old;
-          const meta = old.meta
-            ? {
-                ...old.meta,
-                totalCount: Math.max(0, old.meta.totalCount - 1),
-              }
-            : null;
-          return { users, meta };
+
+          const data = old.data.filter((c) => c.id !== deletedId);
+          if (data.length === old.data.length) return old;
+
+          return {
+            ...old,
+            data,
+            meta: {
+              ...old.meta,
+              totalCount: Math.max(0, old.meta.totalCount - 1),
+            },
+          };
         },
       );
-      await invalidateUserLists(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
 
-export interface UseUserResult {
-  users: User[];
-  meta: ResponseMeta | null;
-  isLoading: boolean;
-  isError: boolean;
-  errorMessage: string | null;
-  refetch: () => Promise<void>;
-}
-
-export function usersListQueryKey(params: FetchUsersOptions) {
-  return [
-    'users',
-    'list',
-    params.page ?? 1,
-    params.limit ?? PAGE_SIZE,
-    params.search ?? '',
-    params.role ?? '',
-  ] as const;
-}
-
-export const useUsers = (params: UseUsersParams = {}): UseUserResult => {
-  const query = useQuery({
-    queryKey: usersListQueryKey(params),
-    queryFn: async () => {
-      const result = await fetchUsers(params);
-      if (!result.ok) {
-        throw new Error(result.error);
-      }
-      return {
-        users: result.users,
-        meta: result.meta ?? null,
-      };
-    },
+export const useUsers = (params: UsersQueryParams) => {
+  const { page, limit, search, role } = params;
+  return useQuery({
+    queryKey: ['users', 'list', page ?? 1, limit ?? PAGE_SIZE, search ?? '', role ?? ''],
+    queryFn: () =>
+      apiClient.get<PaginatedResponse<User[]>>(API_ROUTES.USERS, {
+        query: {
+          page,
+          limit,
+          search: search?.trim(),
+          role: role?.trim(),
+        },
+      }),
     staleTime: LIST_QUERY_STALE_MS,
     gcTime: LIST_QUERY_GC_MS,
     placeholderData: keepPreviousData,
   });
-
-  return {
-    users: query.data?.users ?? [],
-    meta: query.data?.meta ?? null,
-    isLoading: !query.data && query.isFetching,
-    isError: query.isError,
-    errorMessage:
-      query.isError && query.error instanceof Error
-        ? query.error.message
-        : query.isError
-          ? String(query.error)
-          : null,
-    refetch: async () => {
-      await query.refetch();
-    },
-  };
 };

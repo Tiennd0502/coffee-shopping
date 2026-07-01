@@ -7,7 +7,7 @@ import { AppError, ConflictError } from '@/shared/errors/app';
 import { ErrorCode } from '@/shared/errors/codes';
 import { ERROR_MESSAGES } from '@/shared/errors/messages';
 import { BaseService } from '@/shared/services/base.service';
-import type { PaginatedResponse } from '@/shared/types/response';
+import type { PaginatedResponse } from '@repo/types';
 
 import type { CreateUserInput, ListUsersQuery, UpdateUserInput } from './user.dto';
 import type { UserAddress } from './user-address.entity';

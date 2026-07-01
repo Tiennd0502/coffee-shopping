@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 
 import { ProductDetailSpecGrid } from '@/components/ProductDetailSpecGrid';
-import { DISCOUNT_TYPE, PRODUCT_STATUS, ROAST_LEVEL, type Product } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
+import type { Product } from '@/types/product';
 
 const fixture: Product = {
   id: 'p-1',
@@ -19,7 +20,7 @@ const fixture: Product = {
     {
       sku: 's',
       weight: 250,
-      unit: 'g',
+      unit: PRODUCT_UNIT.G,
       price: 24,
       discountType: DISCOUNT_TYPE.PERCENT,
       discountValue: 0,

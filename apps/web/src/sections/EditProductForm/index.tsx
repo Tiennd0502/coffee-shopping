@@ -7,20 +7,36 @@ import { BadgeCheck, Leaf, Plus, X } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+// Types
 import type { Product, ProductImagePayload, ProductUpdatePayload } from '@/types/product';
-import { PRODUCT_STATUS, ROAST_LEVEL } from '@/types/product';
+import { PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
 
+// Constants
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants/messages';
 import { EMPTY_IMAGE } from '@/constants/images';
 import { CATEGORY_QUERY_OPTIONS } from '@/constants/category';
-import { ROUTES, dashboardProductEditPath } from '@/constants/routes';
+import { ROUTES } from '@/constants/routes';
 
+// Utils
+import { getCategoryOptions } from '@/utils/common';
+import {
+  buildProductUpdateImageDiff,
+  mapProductToEditFormValues,
+  parseTastingNotesString,
+  splitProductImagesForGallery,
+} from '@/utils/product';
+
+// Schemas
+import { editProductFormSchema, type EditProductFormValues } from '@/schemas/product';
+
+// Hooks
 import { useCategories } from '@/hooks/useCategory';
 import { useUpdateProduct } from '@/hooks/useProduct';
 
+// Services
 import { uploadImageToImgBB } from '@/services/image';
-import { editProductFormSchema, type EditProductFormValues } from '@/schemas/product';
 
+// Components
 import Breadcrumb from '@/components/Breadcrumb';
 import { Input } from '@/components/Input';
 import UploadImage from '@/components/UploadImage';
@@ -35,14 +51,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import PublishIcon from '@/components/icon/PublishIcon';
 import BrainIcon from '@/components/icon/BrainIcon';
-
-import { getCategoryOptions } from '@/utils/common';
-import {
-  buildProductUpdateImageDiff,
-  mapProductToEditFormValues,
-  parseTastingNotesString,
-  splitProductImagesForGallery,
-} from '@/utils/product';
 
 interface LocalImage {
   url: string;
@@ -81,7 +89,8 @@ interface EditProductFormProps {
 const EditProductForm = ({ product, productId }: EditProductFormProps) => {
   const router = useRouter();
   const { mutate: updateMutate, isPending: isUpdatePending } = useUpdateProduct();
-  const { categories, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const { data, isLoading: isCategoryLoading } = useCategories(CATEGORY_QUERY_OPTIONS);
+  const categories = data?.data ?? [];
 
   const [avatarImage, setAvatarImage] = useState<LocalImage | null>(null);
   const [serverPrimaryUrl, setServerPrimaryUrl] = useState<string | null>(null);
@@ -261,7 +270,7 @@ const EditProductForm = ({ product, productId }: EditProductFormProps) => {
     const galleryUploads = await Promise.all(galleryImages.map((file) => uploadImageToImgBB(file)));
 
     const failedGallery = galleryUploads.find((result) => !result.ok);
-    if (failedGallery && !failedGallery.ok) {
+    if (failedGallery) {
       return { ok: false as const, error: failedGallery.error };
     }
 
@@ -359,7 +368,8 @@ const EditProductForm = ({ product, productId }: EditProductFormProps) => {
     { label: 'Products', href: ROUTES.DASHBOARD_PRODUCTS },
     {
       label: 'Edit Product',
-      href: productId !== '' ? dashboardProductEditPath(productId) : ROUTES.DASHBOARD_PRODUCTS,
+      href:
+        productId !== '' ? ROUTES.DASHBOARD_PRODUCTS_EDIT(productId) : ROUTES.DASHBOARD_PRODUCTS,
     },
   ];
 

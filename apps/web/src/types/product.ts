@@ -1,32 +1,11 @@
-export enum ROAST_LEVEL {
-  LIGHT = 'LIGHT',
-  MEDIUM = 'MEDIUM',
-  DARK = 'DARK',
-}
+import {
+  type ROAST_LEVEL,
+  type PRODUCT_UNIT,
+  type DISCOUNT_TYPE,
+  type PRODUCT_STATUS,
+} from '@repo/types';
 
-export enum PRODUCT_UNIT {
-  KG = 'KG',
-  G = 'G',
-  L = 'L',
-  ML = 'ML',
-}
-
-export enum DISCOUNT_TYPE {
-  PERCENT = 'PERCENT',
-  FIXED = 'FIXED',
-}
-
-export enum PRODUCT_STATUS {
-  DRAFT = 'DRAFT',
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-  ARCHIVED = 'ARCHIVED',
-}
-
-export type ProductStatus = PRODUCT_STATUS;
-
-export interface ProductVariantPayload {
-  id?: string;
+interface ProductVariantBase {
   sku?: string;
   weight: number;
   unit: PRODUCT_UNIT;
@@ -36,17 +15,14 @@ export interface ProductVariantPayload {
   quantity: number;
 }
 
-export interface ProductVariant {
+export interface ProductVariantPayload extends ProductVariantBase {
+  id?: string;
+}
+
+export interface ProductVariant extends ProductVariantBase {
   id: string;
   productId: string;
-  sku?: string;
-  weight: number;
-  unit: PRODUCT_UNIT;
   name: string;
-  price: number;
-  discountType: DISCOUNT_TYPE | null;
-  discountValue: number | null;
-  quantity: number;
 }
 
 export interface ProductImagePayload {
@@ -65,58 +41,43 @@ export interface ProductImageUpdatePayload {
   isPrimary: boolean;
 }
 
-export interface ProductPayload {
+interface ProductBase {
   categoryId: string;
   name: string;
   description: string;
   roastLevel: ROAST_LEVEL;
   isOrganic: boolean;
   isFairTrade: boolean;
-  status: ProductStatus;
+  status: PRODUCT_STATUS;
   tastingNotes: string;
   origin: string;
   processingMethod: string;
+}
+
+export interface ProductPayload extends ProductBase {
   variants: ProductVariantPayload[];
   images: ProductImagePayload[];
 }
 
-export interface ProductUpdatePayload extends Omit<ProductPayload, 'images' | 'variants'> {
+export interface ProductUpdatePayload extends ProductBase {
   addImages: ProductImagePayload[];
   removeImageIds: string[];
   updateImages: ProductImageUpdatePayload[];
 }
 
-export interface Product {
+export interface Product extends ProductBase {
   id: string;
-  categoryId: string;
-  name: string;
-  description: string;
-  roastLevel: ROAST_LEVEL;
-  isOrganic: boolean;
-  isFairTrade: boolean;
-  status: ProductStatus;
-  tastingNotes: string;
-  origin: string;
-  processingMethod: string;
   variants: ProductVariantPayload[];
   images: ProductImage[];
   createdAt: string | null;
   updatedAt: string | null;
 }
 
-export interface ProductFormValues {
-  categoryId: string;
-  name: string;
-  description: string;
-  roastLevel: ROAST_LEVEL;
-  isOrganic: boolean;
-  isFairTrade: boolean;
+export interface ProductFormValues extends ProductBase {
   weight: number;
   unit: PRODUCT_UNIT | '';
   price: number;
   discountType: DISCOUNT_TYPE;
   discountValue: number;
   quantity: number;
-  origin: string;
-  processingMethod: string;
 }

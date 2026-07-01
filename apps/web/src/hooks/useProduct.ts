@@ -2,191 +2,130 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { LIST_QUERY_GC_MS, LIST_QUERY_STALE_MS, PAGE_SIZE } from '@/constants/common';
+// Types
 import {
-  createProduct,
-  deleteProduct,
-  fetchProductById,
-  fetchProducts,
-  updateProduct,
-  type ProductOptions,
-} from '@/services/product';
-import type { ResponseMeta } from '@/types/api';
+  type QueryParams,
+  type PaginatedResponse,
+  type ResponseSuccess,
+  type PRODUCT_STATUS,
+  type ROAST_LEVEL,
+  type PRODUCT_SORT,
+} from '@repo/types';
 import type { Product, ProductPayload, ProductUpdatePayload } from '@/types/product';
 
-function throwIfServiceFailed(result: { ok: false; error: string }): never {
-  throw new Error(result.error);
+// Constants
+import { LIST_QUERY_GC_MS, LIST_QUERY_STALE_MS, PAGE_SIZE } from '@/constants/common';
+import { API_ROUTES } from '@/constants/routes';
+
+// Services
+import { apiClient } from '@/services/api';
+
+export interface ProductQueryParams extends QueryParams {
+  categoryId?: string;
+  status?: PRODUCT_STATUS;
+  minPrice?: number;
+  maxPrice?: number;
+  roastLevel?: ROAST_LEVEL[];
+  sortBy?: PRODUCT_SORT;
 }
 
-export interface UseProductsResult {
-  products: Product[];
-  meta: ResponseMeta | null;
-  isLoading: boolean;
-  isError: boolean;
-  errorMessage: string | null;
-  refetch: () => Promise<void>;
-}
+export const useProducts = (params: ProductQueryParams) => {
+  const { page, limit, search, categoryId, status, minPrice, maxPrice, roastLevel, sortBy } =
+    params;
 
-const productsQueryRoot = ['products'] as const;
-
-const listQueryOptions = {
-  staleTime: LIST_QUERY_STALE_MS,
-  gcTime: LIST_QUERY_GC_MS,
-  placeholderData: keepPreviousData,
-} as const;
-
-const detailQueryOptions = {
-  staleTime: LIST_QUERY_STALE_MS,
-  gcTime: LIST_QUERY_GC_MS,
-} as const;
-
-export function productDetailQueryKey(id: string) {
-  return ['products', 'detail', id] as const;
-}
-
-export function productsListQueryKey(params: ProductOptions) {
-  return [
-    'products',
-    'list',
-    params.page ?? 1,
-    params.limit ?? PAGE_SIZE,
-    params.search ?? '',
-    params.categoryId ?? '',
-    params.status ?? '',
-    params.minPrice ?? '',
-    params.maxPrice ?? '',
-    params.roastLevel ?? '',
-    params.sortBy ?? '',
-  ] as const;
-}
-
-export const useProducts = (params: ProductOptions = {}): UseProductsResult => {
-  const query = useQuery({
-    queryKey: productsListQueryKey(params),
-    queryFn: async () => {
-      const result = await fetchProducts(params);
-      if (!result.ok) throwIfServiceFailed(result);
-      return {
-        products: result.products,
-        meta: result.meta ?? null,
-      };
-    },
-    ...listQueryOptions,
+  return useQuery({
+    queryKey: [
+      'products',
+      'list',
+      page ?? 1,
+      limit ?? PAGE_SIZE,
+      search ?? '',
+      categoryId ?? '',
+      status ?? '',
+      minPrice ?? '',
+      maxPrice ?? '',
+      roastLevel ?? '',
+      sortBy ?? '',
+    ],
+    queryFn: () =>
+      apiClient.get<PaginatedResponse<Product[]>>(API_ROUTES.PRODUCTS, {
+        query: {
+          page,
+          limit,
+          search: search?.trim(),
+          categoryId: categoryId?.trim(),
+          status: status?.trim(),
+          minPrice,
+          maxPrice,
+          roastLevel: roastLevel?.join(','),
+          sortBy: sortBy?.trim(),
+        },
+      }),
+    staleTime: LIST_QUERY_STALE_MS,
+    gcTime: LIST_QUERY_GC_MS,
+    placeholderData: keepPreviousData,
   });
-
-  return {
-    products: query.data?.products ?? [],
-    meta: query.data?.meta ?? null,
-    isLoading: !query.data && query.isFetching,
-    isError: query.isError,
-    errorMessage:
-      query.isError && query.error instanceof Error
-        ? query.error.message
-        : query.isError
-          ? String(query.error)
-          : null,
-    refetch: async () => {
-      await query.refetch();
-    },
-  };
 };
 
 export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (body: ProductPayload) => {
-      const result = await createProduct(body);
-      if (!result.ok) throwIfServiceFailed(result);
-      return result.product;
-    },
+    mutationFn: async (body: ProductPayload) =>
+      apiClient.post<ResponseSuccess<Product>>(API_ROUTES.PRODUCTS, body),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: productsQueryRoot });
+      void queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
-}
-
-interface ProductsListCache {
-  products: Product[];
-  meta: ResponseMeta | null;
 }
 
 export function useDeleteProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const result = await deleteProduct(id);
-      if (!result.ok) throwIfServiceFailed(result);
-    },
+    mutationFn: (id: string) => apiClient.delete(`${API_ROUTES.PRODUCTS}/${id}`),
     onSuccess: async (_result, deletedId) => {
-      queryClient.setQueriesData<ProductsListCache>({ queryKey: ['products', 'list'] }, (old) => {
-        if (!old) return old;
-        const products = old.products.filter((p) => p.id !== deletedId);
-        if (products.length === old.products.length) return old;
-        const meta = old.meta
-          ? {
+      queryClient.setQueriesData<PaginatedResponse<Product[]>>(
+        { queryKey: ['products', 'list'] },
+        (old) => {
+          if (!old) return old;
+
+          const data = old.data.filter((c) => c.id !== deletedId);
+          if (data.length === old.data.length) return old;
+
+          return {
+            ...old,
+            data,
+            meta: {
               ...old.meta,
               totalCount: Math.max(0, old.meta.totalCount - 1),
-            }
-          : null;
-        return { products, meta };
-      });
-      await queryClient.invalidateQueries({ queryKey: productsQueryRoot });
+            },
+          };
+        },
+      );
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
 
-export interface UseProductByIdResult {
-  product: Product | null;
-  isLoading: boolean;
-  isError: boolean;
-  errorMessage: string | null;
-  refetch: () => Promise<void>;
-}
-
-export function useProductById(id: string): UseProductByIdResult {
-  const query = useQuery({
-    queryKey: productDetailQueryKey(id),
-    queryFn: async () => {
-      const result = await fetchProductById(id);
-      if (!result.ok) throwIfServiceFailed(result);
-      return result.product;
-    },
+export function useProductById(id: string) {
+  return useQuery({
+    queryKey: ['products', 'detail', id],
+    queryFn: () => apiClient.get<ResponseSuccess<Product>>(`${API_ROUTES.PRODUCTS}/${id}`),
     enabled: Boolean(id?.trim()),
-    ...detailQueryOptions,
+    staleTime: LIST_QUERY_STALE_MS,
+    gcTime: LIST_QUERY_GC_MS,
   });
-
-  return {
-    product: query.data ?? null,
-    isLoading: !query.data && query.isFetching,
-    isError: query.isError,
-    errorMessage:
-      query.isError && query.error instanceof Error
-        ? query.error.message
-        : query.isError
-          ? String(query.error)
-          : null,
-    refetch: async () => {
-      await query.refetch();
-    },
-  };
 }
 
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { id: string; body: ProductUpdatePayload }) => {
-      const result = await updateProduct(input.id, input.body);
-      if (!result.ok) throwIfServiceFailed(result);
-      return result.product;
-    },
-    onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: productsQueryRoot });
-      void queryClient.invalidateQueries({
-        queryKey: productDetailQueryKey(variables.id.trim()),
-      });
+    mutationFn: async ({ id, body }: { id: string; body: ProductUpdatePayload }) =>
+      apiClient.patch<ResponseSuccess<Product>>(`${API_ROUTES.PRODUCTS}/${id}`, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }

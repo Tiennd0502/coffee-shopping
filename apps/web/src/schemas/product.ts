@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { ERROR_MESSAGES } from '@/constants/messages';
-import { DISCOUNT_TYPE, PRODUCT_UNIT, ROAST_LEVEL } from '@/types/product';
+import { DISCOUNT_TYPE, PRODUCT_STATUS, PRODUCT_UNIT, ROAST_LEVEL } from '@repo/types';
 
 const nonNegativeNumber = (field: string) =>
   z.number({ error: field }).refine((value) => Number.isFinite(value) && value >= 0, {
@@ -40,6 +40,8 @@ export const createProductFormSchema = z
       .min(1, { message: 'Quantity must be at least 1' }),
     origin: z.string().trim().min(1, { message: ERROR_MESSAGES.FIELD_REQUIRED }),
     processingMethod: z.string().trim().min(1, { message: ERROR_MESSAGES.FIELD_REQUIRED }),
+    status: z.nativeEnum(PRODUCT_STATUS),
+    tastingNotes: z.string().trim(),
   })
   .superRefine((data, ctx) => {
     if (data.discountType === DISCOUNT_TYPE.PERCENT && data.discountValue > 100) {
