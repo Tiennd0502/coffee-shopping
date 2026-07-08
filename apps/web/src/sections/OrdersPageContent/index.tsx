@@ -90,8 +90,8 @@ export default function OrdersPageContent() {
     page,
     limit,
     search: search.trim(),
-    status: status ?? undefined,
-    shippingStatus: shippingStatus ?? undefined,
+    ...(status ? { status: status as ORDER_STATUS } : {}),
+    ...(shippingStatus ? { shippingStatus: shippingStatus as SHIPPING_STATUS } : {}),
   });
   const { data: orders = [], meta } = data ?? {};
 
