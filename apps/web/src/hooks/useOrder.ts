@@ -20,8 +20,8 @@ import { API_ROUTES } from '@/constants/routes';
 import { apiClient } from '@/services/api';
 
 interface OrdersQueryParams extends QueryParams {
-  status?: string;
-  shippingStatus?: string;
+  status?: ORDER_STATUS;
+  shippingStatus?: SHIPPING_STATUS;
 }
 
 export function useCreateOrder() {
