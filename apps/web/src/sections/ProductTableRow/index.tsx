@@ -5,8 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 // Types
 import type { Product } from '@/types/product';
-import { PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
-import { type OptionItem } from '@/types/common';
+import { type OptionItem, PRODUCT_STATUS, ROAST_LEVEL } from '@repo/types';
 
 // Constants
 import { ROUTES } from '@/constants/routes';

@@ -10,8 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { type OptionItem } from '@repo/types';
 import { cn } from '@/utils/styles';
-import { type OptionItem } from '@/types/common';
 
 export interface SelectProps extends Omit<
   React.ComponentProps<typeof SelectRoot>,
